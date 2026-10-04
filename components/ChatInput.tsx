@@ -33,6 +33,10 @@ import { useChatAppearance } from "@/hooks/useChatAppearance";
 import type { ToolPreset } from "@/lib/tool-presets";
 import { SelectorRow } from "./SelectorRow";
 import { ModelSelector, type ModelSelectorOption } from "./ModelSelector";
+import { RecordingDeck } from "./RecordingDeck";
+import { Mic, X } from "./DictationIcons";
+import { useDictation } from "@/hooks/useDictation";
+import { useSttEnabled } from "@/hooks/useSttEnabled";
 
 export { filterModelOptions } from "./ModelSelector";
 
@@ -1009,6 +1013,71 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     clearInput();
     onSend(msg, attachedImages.length ? attachedImages : undefined);
   }, [value, attachedImages, isStreaming, runBuiltinCommand, onSend, clearInput, onAudioUnlock]);
+
+  // Voice dictation (ported from ompweb): record, transcribe on the server, then insert
+  // the transcript; the deck's send arrow also sends it, or queues it while a run streams.
+  const sttEnabled = useSttEnabled();
+  const [dictationNotice, setDictationNotice] = useState<string | null>(null);
+  const {
+    isRecording, isPaused, isReviewing, isTranscribing, isPlayingPreview, previewCurrentTime, previewDuration,
+    transcribeError, captureRef,
+    toggle: toggleDictation, cancel: cancelDictation, stop: stopDictation, togglePause: togglePauseDictation,
+    retry: retryDictation, playPreview: playPreviewDictation, pausePreview: pausePreviewDictation,
+    seekPreview: seekPreviewDictation, confirmTranscribe: confirmTranscribeDictation,
+  } = useDictation({
+    scope: draftKey,
+    onTranscript: (text, after) => {
+      setDictationNotice(null);
+      const base = valueRef.current;
+      const combined = base.trim() ? `${base}${/\s$/.test(base) ? "" : " "}${text}` : text;
+      if (after && !attachedImagesRef.current.length) {
+        if (!isStreaming) {
+          clearInput();
+          onSend(combined.trim());
+          return;
+        }
+        if (onFollowUp) {
+          clearInput();
+          onFollowUp(combined.trim());
+          return;
+        }
+      }
+      valueRef.current = combined;
+      setValue(combined);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    onError: (err) => {
+      setDictationNotice(
+        err === "Microphone not supported in this browser or context" ? t("chatInput.dictationNotSupported")
+          : err === "Microphone access denied" ? t("chatInput.dictationPermissionDenied")
+          : err === "No speech detected" ? t("chatInput.dictationNoSpeech")
+          : err === "Transcription timed out" ? t("chatInput.dictationTimedOut")
+          : err === "Transcription failed" ? t("chatInput.dictationFailed")
+          : err,
+      );
+    },
+  });
+  const dictationActive = isRecording || isPaused || isReviewing || isTranscribing || Boolean(transcribeError);
+  const dictationCapturing = isRecording || isPaused || isReviewing;
+  // The deck replaces the textarea, so Escape/Enter work at window level while it shows.
+  useEffect(() => {
+    if (!dictationActive) return;
+    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancelDictation();
+      } else if (e.key === "Enter" && !e.shiftKey && !isTranscribing) {
+        const target = e.target as HTMLElement | null;
+        if (target && target.closest("button, input, textarea, select, a, [role='button']")) return;
+        e.preventDefault();
+        if (transcribeError) retryDictation();
+        else if (isReviewing) confirmTranscribeDictation();
+        else stopDictation();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dictationActive, isReviewing, isTranscribing, transcribeError, cancelDictation, retryDictation, confirmTranscribeDictation, stopDictation]);
 
   const slashQuery = !compact && value.startsWith("/") && !/\s/.test(value.slice(1))
     ? value.slice(1).toLowerCase()
@@ -2200,6 +2269,27 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
             } as React.CSSProperties}
           >
+          {dictationActive ? (
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <RecordingDeck
+                captureRef={captureRef}
+                isPaused={isPaused}
+                isReviewing={isReviewing}
+                isTranscribing={isTranscribing}
+                isPlayingPreview={isPlayingPreview}
+                previewCurrentTime={previewCurrentTime}
+                previewDuration={previewDuration}
+                transcribeError={transcribeError}
+                onPauseResume={togglePauseDictation}
+                onConvert={() => stopDictation()}
+                onRetry={retryDictation}
+                onPlayPreview={isPlayingPreview ? pausePreviewDictation : playPreviewDictation}
+                onSeekPreview={seekPreviewDictation}
+                onConfirmTranscribe={() => confirmTranscribeDictation()}
+                onDiscard={cancelDictation}
+              />
+            </div>
+          ) : (
           <textarea
             ref={textareaRef}
             className="chat-input-textarea"
@@ -2251,6 +2341,21 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               overflow: "auto",
             }}
           />
+          )}
+
+          {sttEnabled && !compact && (
+            <button
+              type="button"
+              onClick={dictationActive ? cancelDictation : () => { setDictationNotice(null); toggleDictation(); }}
+              title={dictationActive ? (transcribeError ? t("chatInput.discardDictation") : t("chatInput.cancelDictation")) : t("chatInput.startDictation")}
+              aria-label={dictationActive ? (transcribeError ? t("chatInput.discardDictation") : t("chatInput.cancelDictation")) : t("chatInput.startDictation")}
+              className="composer-dictation-button"
+              data-active={dictationActive ? "true" : undefined}
+              style={{ alignSelf: "flex-end" }}
+            >
+              {dictationActive ? <X size={15} strokeWidth={1.8} /> : <Mic size={15} strokeWidth={1.8} />}
+            </button>
+          )}
 
           {isStreaming ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, alignSelf: "flex-end" }}>
@@ -2305,8 +2410,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             </div>
           ) : (
             <button
-              onClick={handleSend}
-              disabled={!value.trim() && !attachedImages.length}
+              onClick={dictationCapturing
+                ? () => (isReviewing ? confirmTranscribeDictation({ after: "send" }) : stopDictation({ after: "send" }))
+                : handleSend}
+              disabled={isTranscribing || (!dictationCapturing && !value.trim() && !attachedImages.length)}
               title={t("chat.send")}
               aria-label={t("chat.send")}
               style={{
@@ -2315,11 +2422,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                 // Mobile: icon-only so the placeholder and draft keep the width.
                 ...(isMobile ? { width: 36, height: 36, padding: 0 } : { padding: "7px 14px" }),
-                background: (value.trim() || attachedImages.length) ? "var(--accent)" : "var(--bg-panel)",
+                background: (dictationCapturing || value.trim() || attachedImages.length) ? "var(--accent)" : "var(--bg-panel)",
                 border: "none",
                 borderRadius: 8,
-                color: (value.trim() || attachedImages.length) ? "var(--accent-contrast)" : "var(--text-dim)",
-                cursor: (value.trim() || attachedImages.length) ? "pointer" : "not-allowed",
+                color: (dictationCapturing || value.trim() || attachedImages.length) ? "var(--accent-contrast)" : "var(--text-dim)",
+                cursor: (dictationCapturing || value.trim() || attachedImages.length) ? "pointer" : "not-allowed",
                 fontSize: 13,
                 fontWeight: 600,
                 letterSpacing: "-0.01em",
@@ -2336,6 +2443,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           )}
           </div>
         </div>
+
+        {dictationNotice && (
+          <div role="status" className="text-xs px-2 py-1" style={{ color: "var(--status-error)", marginTop: 4 }}>
+            {dictationNotice}
+          </div>
+        )}
 
         {/* Bash mode status label */}
         {bashMode && (
