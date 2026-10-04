@@ -1997,7 +1997,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     edit: { provider: string; modelId: string } | { thinkingLevel: ConcreteThinkingLevel },
   ) => {
     const cwd = newSessionCwd ?? session?.cwd;
-    const res = await fetch("/api/models/default", {
+    const res = await fetch(withRuntime("/api/models/default", sessionRuntime ?? activeRuntime), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...(cwd ? { cwd } : {}), ...edit }),
@@ -2011,12 +2011,17 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // Non-JSON error responses fall back to the HTTP status.
     }
     throw new Error(detail || `HTTP ${res.status}`);
-  }, [newSessionCwd, session?.cwd]);
+  }, [newSessionCwd, session?.cwd, sessionRuntime, activeRuntime]);
 
   const reloadModelsQuietly = useCallback(() => {
     // The star already updated the marker; a failed refresh keeps the old list.
     loadModels().catch(() => {});
   }, [loadModels]);
+
+  useEffect(() => {
+    window.addEventListener("pi-webui:models-changed", reloadModelsQuietly);
+    return () => window.removeEventListener("pi-webui:models-changed", reloadModelsQuietly);
+  }, [reloadModelsQuietly]);
 
   const handleSetDefaultModel = useCallback(async (provider: string, modelId: string) => {
     try {

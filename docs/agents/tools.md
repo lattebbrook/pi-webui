@@ -1,5 +1,13 @@
 # Tool selection and built-in extensions
 
+## OMP tools (pi-omp branch)
+Settings › OMP uses `OmpSettingsEditor` for the installed CLI's supported tool enable
+keys and per-tool approval policies. These are global native config values; the editor
+does not write Pi's defaultTools. Keys unsupported by that OMP version are not offered.
+Startup tool changes apply to new OMP chats or through **Reload current OMP chat**;
+`OmpSessionWrapper` refuses reload while streaming/compacting/running a shell command.
+Running-chat tool presets still cannot change OMP's active tools through `set_tools`.
+
 ## New session tool preset
 Tool names are passed at session creation (`POST /api/agent/new` → `toolNames[]`) and persisted in versioned `pi-web:tool-selection` custom entries (ADR 0002). No entry, or a later `cleared: true` one, means no pin: the session follows pi's `defaultTools`, as the `configured` preset ("From settings.json defaultTools") does by sending no `toolNames`. An empty array is Chat only, resolved before services are created: no extensions/skills/prompts/themes, and the ordered contents of Pi's discovered context files replace Pi's base prompt. Crossing the Chat-only boundary or clearing a pin rebuilds the wrapper; changing between nonempty presets updates it in place.
 

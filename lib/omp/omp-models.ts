@@ -100,7 +100,7 @@ export async function loadOmpModels(): Promise<ModelsData> {
     modelList,
     defaultModel: state?.model ? { provider: state.model.provider, modelId: state.model.id } : null,
     defaultThinkingLevel: state?.thinkingLevel ?? readOmpDefaultThinkingLevel(),
-    savedDefaultThinkingLevel: null,
+    savedDefaultThinkingLevel: readOmpDefaultThinkingLevel(),
     thinkingLevels,
     thinkingLevelMaps,
     thinkingLevelPins: {},

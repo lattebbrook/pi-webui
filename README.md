@@ -18,14 +18,53 @@ in the same server, so nothing restarts. omp is the default when it is installed
 | Runs as | `omp --mode rpc-ui` per open chat (JSON over stdio) | pi's SDK inside the server |
 | Sessions | `~/.omp/agent/sessions` | `~/.pi/agent/sessions` |
 | Models, default model, thinking | omp's `models.yml`, `config.yml` and logins | pi's `models.json`, `settings.json` and logins |
-| Settings | General, **OMP** (read-only view of omp's config), Usage | General, Models, Skills, Sub-agents, Plugins, MCP, Usage |
+| Settings | General, **Models** (roles, providers and model scope), **OMP** (tools and agent settings), Usage | General, Models, Skills, Sub-agents, Plugins, MCP, Usage |
 | `/btw` | omp's own side questions | pi-webui's side questions on the session's model |
 
 omp transcripts are shown through read-only shadow copies under
-`~/.pi/agent/pi-webui/omp-shadow`; only omp itself writes omp's files. Set
+`~/.pi/agent/pi-webui/omp-shadow`; only omp itself writes omp's session files. Set
 `PI_WEBUI_OMP_BIN` if `omp` is not on `PATH`, and `PI_WEBUI_OMP_AGENT_DIR` to point at a
 non-default omp agent directory. Not yet available for omp sessions: in-session branch
 navigation, cloning, changing tools on a running chat, and extension custom UI.
+
+On the **pi-omp** branch, Settings › Models edits OMP model roles, default thinking,
+enabled-model patterns, disabled providers and custom providers in `models.yml`.
+The Models screen shares Pi’s provider picker, sidebar and model forms. Add cloud
+providers (OpenAI, Anthropic, Google, OpenRouter, Groq and DeepSeek), choose a local
+preset (Ollama, LM Studio, llama.cpp or vLLM), or enter any compatible endpoint.
+**Import models…** discovers IDs from that endpoint; select the models to add,
+edit context/output limits, reasoning, costs and headers, then **Save**.
+**Check availability** checks the endpoint’s model list without running inference.
+Native provider logins use OMP’s own login flow and credential store; removing a
+native login still requires `omp` → `/logout`. Stored keys are never read into the
+browser. Endpoint discovery supports literal keys/environment variables; command
+references are left to OMP. Catalog recommendations remain Pi’s shared catalog,
+so check provider-specific limits before applying them.
+Settings › OMP exposes tool switches, per-tool approval policies, advisor, retry
+and compaction settings supported by the installed OMP version. Model/thinking
+stars in the composer save OMP defaults when the chat belongs to OMP.
+Saves preserve other YAML fields and comments, keep stored credentials masked,
+create adjacent `*.backup-webui-*` files and refuse stale edits. New chats use the
+new config; **Reload current OMP chat** applies startup settings to an idle chat.
+Project overrides still take precedence. Scoped model/provider filters remain
+read-only here. OMP skills, plugins and MCP settings still use OMP's own controls.
+The **pi-only** branch keeps the separate Pi-only interface.
+
+### Clone your personal branch on another device
+
+Install Node.js 22.19+ and OMP, then:
+
+```sh
+git clone --branch pi-omp https://github.com/lattebbrook/pi-webui.git
+cd pi-webui
+npm ci
+npm run dev
+```
+
+Open `http://127.0.0.1:30141`. Configure providers on that device through
+Settings → Models. Credentials, model files and local model servers are not
+included in Git. For a server on another machine, replace `127.0.0.1` with its
+reachable address. Use the `pi-only` branch for the clean Pi-only version.
 
 ### Everything else
 

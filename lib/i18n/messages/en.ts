@@ -1404,7 +1404,7 @@ export const enLocale: LocalePlugin = {
     "runtime.unavailable": "{name} is not installed on this computer",
     "commandPalette.runtime": "Agent",
     "commandPalette.switchRuntime": "Switch agent to {name}",
-    "ompConfig.description": "In OMP mode, Pi WebUI follows omp’s own configuration. Change it with omp (omp config) or by editing these files; new chats pick it up.",
+    "ompConfig.description": "Configure OMP’s tools and agent settings here. Use Models for model roles and custom providers. Saves create backups; new chats pick up the changes.",
     "ompConfig.loading": "Reading omp’s configuration…",
     "ompConfig.notInstalled": "omp is not installed on this computer.",
     "ompConfig.install": "Installation",

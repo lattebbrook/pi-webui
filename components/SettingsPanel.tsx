@@ -35,10 +35,11 @@ import { PluginsConfig } from "./PluginsConfig";
 import { McpConfig } from "./McpConfig";
 import { UsageConfig } from "./UsageConfig";
 import { OmpConfig } from "./OmpConfig";
+import { OmpModelsConfig } from "./OmpModelsConfig";
 import { useRuntime } from "@/lib/runtime-client";
 
 // Sections that configure pi itself; omp mode follows omp's own config instead (Settings › OMP).
-const PI_ONLY_SECTIONS = new Set<SettingsSection>(["models", "skills", "agents", "plugins", "mcp"]);
+const PI_ONLY_SECTIONS = new Set<SettingsSection>(["skills", "agents", "plugins", "mcp"]);
 import { ConfigButton, ConfigSwitch } from "./SettingsUi";
 
 interface Props {
@@ -82,6 +83,7 @@ export function SettingsSectionIcon({ section, size = 16, strokeWidth = 1.8 }: {
 }
 
 function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, onQuoteSelectionChange }: Pick<Props, "sessionId" | "onSessionReloaded" | "quoteSelectionEnabled" | "onQuoteSelectionChange">) {
+  const runtime = useRuntime();
   const { locale, setLocale, supportedLocales, t } = useI18n();
   const { preference, setThemePreference } = useTheme();
   const { width: chatContentWidth, setWidth: setChatContentWidth, fontSize, setFontSize } = useChatAppearance();
@@ -120,6 +122,7 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
 
   useEffect(() => {
     let cancelled = false;
+    if (runtime === "omp") { setShellSettings(null); return; }
     void fetch("/api/tools/settings")
       .then(async (response) => {
         const data = await response.json() as ToolSettingsResponse & { error?: string };
@@ -130,7 +133,7 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
         if (!cancelled) setShellError(cause instanceof Error ? cause.message : String(cause));
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [runtime]);
 
   const togglePowerShell = async (enabled: boolean) => {
     setShellSaving(true);
@@ -531,7 +534,7 @@ export function SettingsPanel({
 
         <main className="settings-dialog-main">
           {sectionHost("general", <GeneralSettings sessionId={sessionId} onSessionReloaded={onSessionReloaded} quoteSelectionEnabled={quoteSelectionEnabled} onQuoteSelectionChange={onQuoteSelectionChange} />)}
-          {sectionHost("models", <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
+          {sectionHost("models", runtime === "omp" ? <OmpModelsConfig /> : <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
           {/* Visited sections stay mounted, so the ones whose answer depends on trust take the page's
               status and load again in place when trusting from Settings › MCP changes it. */}
           {cwd && sectionHost("skills", <SkillsConfig embedded key={cwd} cwd={cwd} trust={projectTrust} onClose={onClose} />)}
@@ -539,7 +542,7 @@ export function SettingsPanel({
           {cwd && sectionHost("plugins", <PluginsConfig embedded key={cwd} cwd={cwd} sessionId={sessionId} trust={projectTrust} onClose={onClose} onReloaded={onSessionReloaded} />)}
           {/* No project needed: the global mcp.json is listed alone, and a project adds its group. */}
           {sectionHost("mcp", <McpConfig embedded key={cwd ?? ""} cwd={cwd} trust={projectTrust} onTrustProject={onOpenTrustDialog} onProjectTrustChanged={onProjectTrustChanged} onClose={onClose} />)}
-          {sectionHost("omp", <OmpConfig />)}
+          {sectionHost("omp", <OmpConfig sessionId={sessionId} onReloaded={onSessionReloaded} />)}
           {sectionHost("usage", <div className="usage-config"><UsageConfig /></div>)}
         </main>
       </div>

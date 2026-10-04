@@ -182,7 +182,8 @@ test("thinking level overrides keep explicit default, disabled, and custom contr
     source.indexOf("// ── Model detail"),
   );
 
-  assert.match(editor, /THINKING_LEVELS\.map/);
+  assert.match(editor, /levels = THINKING_LEVELS/);
+  assert.match(editor, /levels\.map/);
   assert.match(editor, />\s*Default\s*</);
   assert.match(editor, />\s*Disabled\s*</);
   assert.match(editor, />\s*Custom\s*</);

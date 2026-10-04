@@ -130,7 +130,7 @@ test("a custom provider is switched from its header, by one switch and no prose"
   // It sits in the detail header, left of the provider's own buttons.
   assert.match(
     modelsConfigSource,
-    /<EnabledModelsProviderSwitch providerId=\{name\} controller=\{enabledModels\} noteId=\{switchNoteId\} \/>\s*\n\s*<ConfigButton variant="danger"/,
+    /<EnabledModelsProviderSwitch providerId=\{name\} controller=\{enabledModels\} noteId=\{switchNoteId\} \/>\}\s*\n\s*<ConfigButton variant="danger"/,
   );
   // Nothing about it is explained in body text any more.
   assert.doesNotMatch(source, /enabledCustomHint/);
@@ -143,7 +143,7 @@ test("why a switch cannot move is visible text it points at, never only its tool
   assert.match(source, /return key \? <div id=\{id\} className="config-detail-heading-note">\{t\(key\)\}<\/div> : null;/);
   assert.match(
     modelsConfigSource,
-    /<\/ConfigDetailHeader>\s*\n\s*<EnabledModelsProviderSwitchNote providerId=\{name\} controller=\{enabledModels\} id=\{switchNoteId\} \/>/,
+    /<\/ConfigDetailHeader>\s*\n\s*\{enabledModels && <EnabledModelsProviderSwitchNote providerId=\{name\} controller=\{enabledModels\} id=\{switchNoteId\} \/>/,
   );
   // A built-in provider's rows and Disable all point at the section's notes.
   assert.match(source, /\{showLastModelNote && <div id=\{lastModelNoteId\} className="enabled-models-note">\{t\("models\.enabledLastModel"\)\}<\/div>\}/);
@@ -192,7 +192,7 @@ test("the provider switch is locked when it would empty the scope or the file is
 test("the section is mounted for built-in and api-key providers", () => {
   assert.match(
     modelsConfigSource,
-    /provider\.loggedIn && <EnabledModelsSection providerId=\{provider\.id\} controller=\{enabledModels\} \/>/,
+    /provider\.loggedIn && enabledModels && <EnabledModelsSection providerId=\{provider\.id\} controller=\{enabledModels\} \/>/,
   );
   assert.match(
     modelsConfigSource,

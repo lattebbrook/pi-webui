@@ -1,11 +1,12 @@
 "use client";
 
-// Settings › OMP: what omp itself is configured with. In omp mode Pi WebUI
-// follows omp's config.yml and models.yml; this page shows them read-only and
-// says where to change them.
+// Settings › OMP: native tools and agent settings, plus installation details.
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/hooks/useI18n";
+import { OmpSettingsEditor } from "./OmpSettingsEditor";
+import { ConfigButton } from "./SettingsUi";
+import { sendAgentCommand } from "@/lib/agent-client";
 
 interface OmpConfigResponse {
   installed: boolean;
@@ -19,10 +20,18 @@ interface OmpConfigResponse {
 
 const cell = { padding: "6px 10px", borderBottom: "1px solid var(--border)", textAlign: "left" as const, verticalAlign: "top" as const };
 
-export function OmpConfig() {
+export function OmpConfig({ sessionId, onReloaded }: { sessionId: string | null; onReloaded: () => void }) {
   const { t } = useI18n();
   const [config, setConfig] = useState<OmpConfigResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloading, setReloading] = useState(false);
+  const reloadChat = async () => {
+    if (!sessionId) return;
+    setReloading(true); setError(null);
+    try { await sendAgentCommand(sessionId, { type: "reload" }); onReloaded(); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setReloading(false); }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -39,13 +48,15 @@ export function OmpConfig() {
     <div className="settings-general">
       <h2 className="settings-general-title">OMP</h2>
       <p className="settings-general-description" style={{ marginTop: 6 }}>{t("ompConfig.description")}</p>
+      {sessionId && <ConfigButton variant="secondary" disabled={reloading} onClick={() => void reloadChat()}>Reload current OMP chat</ConfigButton>}
       {error && <p className="settings-general-error">{error}</p>}
       {!config && !error && <p className="settings-general-description">{t("ompConfig.loading")}</p>}
       {config && !config.installed && <p className="settings-general-error">{t("ompConfig.notInstalled")}</p>}
       {config?.installed && (
         <>
-          <section className="settings-general-section">
-            <h3 className="settings-general-heading">{t("ompConfig.install")}</h3>
+          <OmpSettingsEditor group="tools" />
+          <details className="settings-general-section">
+            <summary className="settings-general-heading">{t("ompConfig.install")}</summary>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <tbody>
                 <tr><th style={{ ...cell, color: "var(--text-muted)", fontWeight: 500, width: 150 }}>{t("ompConfig.version")}</th><td style={cell} className="tabular-nums">{config.version ?? "—"}</td></tr>
@@ -56,44 +67,7 @@ export function OmpConfig() {
                 <tr><th style={{ ...cell, color: "var(--text-muted)", fontWeight: 500 }}>{t("ompConfig.thinking")}</th><td style={cell}>{config.defaultThinkingLevel ?? "—"}</td></tr>
               </tbody>
             </table>
-          </section>
-
-          <section className="settings-general-section">
-            <h3 className="settings-general-heading">{t("ompConfig.roles")}</h3>
-            <p className="settings-general-description">{t("ompConfig.rolesDescription")}</p>
-            {config.roles.length ? (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <tbody>
-                  {config.roles.map((entry) => (
-                    <tr key={entry.role}>
-                      <th style={{ ...cell, color: "var(--text-muted)", fontWeight: 500, width: 150 }}>{entry.role}</th>
-                      <td style={{ ...cell, fontFamily: "var(--font-mono)" }}>{entry.model}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : <p className="settings-general-description">—</p>}
-          </section>
-
-          <section className="settings-general-section">
-            <h3 className="settings-general-heading">{t("ompConfig.providers")}</h3>
-            <p className="settings-general-description">{t("ompConfig.providersDescription")}</p>
-            {config.providers.length ? (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <tbody>
-                  {config.providers.map((provider) => (
-                    <tr key={provider.name}>
-                      <th style={{ ...cell, fontWeight: 600, width: 150 }}>{provider.name}</th>
-                      <td style={{ ...cell, fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>{provider.baseUrl ?? "—"}</td>
-                      <td style={{ ...cell, color: "var(--text-dim)", whiteSpace: "nowrap" }} className="tabular-nums">
-                        {provider.discovery ? t("ompConfig.discovered", { type: provider.discovery }) : t("ompConfig.modelCount", { count: provider.models })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : <p className="settings-general-description">—</p>}
-          </section>
+          </details>
         </>
       )}
     </div>

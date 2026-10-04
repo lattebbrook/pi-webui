@@ -2089,3 +2089,21 @@ span.token.table {
   cursor: not-allowed;
   opacity: 0.45;
 }
+/* Native OMP editors use the same theme tokens and settings blocks as Pi. */
+.omp-config-heading, .omp-config-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.omp-config-heading { margin-bottom: 10px; }
+.omp-config-field { display: block; margin: 18px 0; font-size: 13px; }
+.omp-config-field h4 { margin: 0 0 8px; }
+.omp-config-field input, .omp-config-field select, .omp-config-field textarea { display: block; width: 100%; padding: 8px 10px; margin: 8px 0; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 7px; }
+.omp-config-field textarea, .omp-config-path { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.omp-config-field textarea { resize: vertical; }
+.omp-config-field input:focus, .omp-config-field select:focus, .omp-config-field textarea:focus { outline: 2px solid var(--text-muted); outline-offset: 1px; }
+.omp-config-role { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 10px; }
+.omp-config-toggle { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.omp-config-toggle > div { min-width: 0; }
+
+.omp-runtime-models { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.omp-runtime-models li { display: grid; gap: 3px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; }
+.omp-runtime-models strong { font-size: 12px; }
+.omp-runtime-models code { color: var(--text-muted); font-size: 11px; overflow-wrap: anywhere; }
+.omp-models-fields { display: contents; }

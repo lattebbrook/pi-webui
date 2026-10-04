@@ -474,6 +474,7 @@ export class OmpSessionWrapper {
         return { cancelled: false, newSessionId, text: result?.text ?? "" };
       }
       case "reload":
+        if (this.isRunning()) throw new Error("Wait for the OMP chat to finish before reloading its settings");
         await this.restart();
         return { success: true };
       default:

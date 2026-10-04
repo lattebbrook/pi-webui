@@ -1,5 +1,24 @@
 # Models and provider auth
 
+## Native OMP editors (pi-omp branch)
+Settings › Models uses `OmpModelsConfig` and `OmpSettingsEditor` with `/api/omp/models-config`
+and `/api/omp/settings`. They write OMP's `models.yml`/`config.yml`, never Pi's settings.
+`lib/omp/config-store.ts` parses a bounded regular-file YAML mapping, applies AST edits,
+checks the caller's source revision under a lock, backs up the original with mode 0600,
+and atomically replaces the resolved target (preserving file symlinks). Parser diagnostics
+must never include a credential line. Invalid input/config is refused; there is no forced overwrite.
+`models-config.ts` masks credentials, all header values, and credential-bearing URLs;
+masked values restore by path and model id on save. Neither readers nor validation evaluate
+credential commands. Custom provider changes preserve untouched providers and top-level fields.
+`settings-config.ts` asks the installed CLI for its schema with the same agent dir/profile
+rules as the RPC child, then exposes only reviewed keys. Scoped enabledModels/disabledProviders
+arrays cannot be overwritten by this editor. Native OMP globals still yield to project/env overrides.
+The composer default-star request includes the session's runtime; OMP saves default roles and
+thinking through this store and refuses native project-shadowed defaults. Config changes dispose
+the OMP model utility and emit `pi-webui:models-changed` for composers to refresh.
+Dependency: explicit `yaml@2.9.0` for comment-preserving AST edits. `npm audit` reported no
+finding for yaml when added; existing audit findings are not changed by this work.
+
 ## Model defaults for new sessions
 `GET /api/models` returns `defaultModel` from `~/.pi/agent/settings.json`; `ChatWindow` pre-selects it for new sessions. Browser model/thinking picks are applied atomically while the AgentSession is built and are **session-scoped**: neither startup nor a mid-session `set_model` / `set_thinking_level` writes `settings.json`, as pi's `/model` and `/thinking` persist only on Ctrl+S (otherwise a one-off pick becomes the TUI's default too).
 
@@ -29,3 +48,24 @@ The Models panel edits it only through `/api/models/enabled`, never with pattern
 - OAuth/device-code/manual-code flows stream from `GET /api/auth/login/[provider]`; a manual code POSTs back with a short-lived token kept in `globalThis.__piLoginCallbacks`.
 - API-key routes store and remove keys through `lib/provider-credential-store.ts` (`storeProviderCredential()` / `removeStoredCredentialIfType()`), not `AuthStorage`, and never through `ModelRuntime.login()`, which runs an unbounded catalog refresh. Status endpoints never return the raw key.
 - The model test route is `app/api/models-config/test/route.ts`; `app/api/models/test/` does not exist.
+
+### OMP provider UI parity
+
+- `OmpModelsConfig` reuses Pi's `ProviderDetail`, `ModelDetail`, `OAuthDetail`
+  and `AddProviderPicker`. Optional endpoint props default to Pi URLs, so OMP
+  discovery/login never reaches Pi credentials or enabled-model settings.
+- OMP bulk saves use one revision/lock/backup for all providers; secret markers
+  restore by provider and model ID. Saved provider IDs are fixed to avoid moving
+  credentials or leaving role references dangling. Model forms preserve unknown
+  native fields, and the thinking editor writes native `thinking.efforts` and
+  `thinking.effortMap`, excluding Pi's `off` pseudo-level.
+- `/api/omp/providers` reads the installed CLI's model and login registries.
+  Native login bridges OMP extension input/select/confirm frames through SSE
+  and a provider-bound token. Native credential removal is still terminal-only.
+- `/api/omp/models-config/discover` uses the entered endpoint and OMP-only
+  credentials. It does not execute command references, follow redirects, return
+  upstream error bodies, or forward stored keys to a changed unsaved endpoint.
+  The test action only checks whether `/models` lists the requested ID; it does
+  not claim that inference, tools or OAuth provider acceptance has passed.
+- `provider-presets.ts` contains editable cloud/local endpoint templates. Native
+  login provider names come from OMP; these include more than OAuth subscriptions.

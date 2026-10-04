@@ -1404,7 +1404,7 @@ export const zhTWLocale: LocalePlugin = {
     "runtime.unavailable": "此電腦未安裝 {name}",
     "commandPalette.runtime": "代理",
     "commandPalette.switchRuntime": "切換代理為 {name}",
-    "ompConfig.description": "在 OMP 模式下，Pi WebUI 遵循 omp 自身的設定。請透過 omp（omp config）或直接編輯這些檔案來修改；新對話會使用新設定。",
+    "ompConfig.description": "在這裡設定 OMP 的工具和代理選項。在「模型」中編輯模型角色和自訂供應商。儲存時會建立備份；新對話會使用新設定。",
     "ompConfig.loading": "正在讀取 omp 設定…",
     "ompConfig.notInstalled": "此電腦未安裝 omp。",
     "ompConfig.install": "安裝",

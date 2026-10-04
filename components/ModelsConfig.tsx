@@ -57,7 +57,7 @@ import { ProviderUsageSummary } from "./ProviderUsageSummary";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface OAuthProvider {
+export interface OAuthProvider {
   id: string;
   name: string;
   usesCallbackServer: boolean;
@@ -87,12 +87,13 @@ type OAuthLoginState =
   | { phase: "success" }
   | { phase: "error"; message: string };
 
-interface ModelEntry {
+export interface ModelEntry {
   id: string;
   name?: string;
   api?: string;
   reasoning?: boolean;
   thinkingLevelMap?: Record<string, string | null>;
+  thinking?: { mode?: string; efforts?: string[]; effortMap?: Record<string, string>; defaultLevel?: string; [key: string]: unknown };
   input?: string[];
   contextWindow?: number;
   maxTokens?: number;
@@ -101,7 +102,9 @@ interface ModelEntry {
   compat?: Record<string, unknown>;
 }
 
-interface ProviderEntry {
+export interface ProviderEntry {
+  auth?: "none" | "apiKey" | "oauth";
+  [key: string]: unknown;
   baseUrl?: string;
   api?: string;
   apiKey?: string;
@@ -192,8 +195,8 @@ const inputStyle = {
   boxSizing: "border-box" as const,
 };
 
-function TextInput({ value, onChange, placeholder, mono }: { value: string; onChange: (v: string) => void; placeholder?: string; mono?: boolean }) {
-  return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+function TextInput({ value, onChange, placeholder, mono, readOnly }: { value: string; onChange: (v: string) => void; placeholder?: string; mono?: boolean; readOnly?: boolean }) {
+  return <input value={value} readOnly={readOnly} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
     style={{ ...inputStyle, fontFamily: mono ? "var(--font-mono)" : "inherit" }} />;
 }
 
@@ -306,11 +309,11 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 // ── Provider detail ───────────────────────────────────────────────────────────
 
-function ProviderDetail({ name, editingName, provider, onChange, onEditingNameChange, onRename, onDelete, onAddModels, enabledModels }: {
+export function ProviderDetail({ name, editingName, provider, onChange, onEditingNameChange, onRename, onDelete, onAddModels, enabledModels, apiBase = "/api/models-config", nameLocked = false }: {
   name: string; editingName: string; provider: ProviderEntry;
   onChange: (p: ProviderEntry) => void; onEditingNameChange: (n: string) => void;
   onRename: (n: string) => void; onDelete: () => void;
-  onAddModels: (models: DiscoveredModel[]) => void; enabledModels: EnabledModelsController;
+  onAddModels: (models: DiscoveredModel[]) => void; enabledModels?: EnabledModelsController; apiBase?: string; nameLocked?: boolean;
 }) {
   const { t } = useI18n();
   const [discoveryState, setDiscoveryState] = useState<ModelDiscoveryState>({ phase: "idle" });
@@ -339,7 +342,7 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
     setDiscoveryState({ phase: "loading" });
     setSelectedModelIds([]);
     try {
-      const res = await fetch("/api/models-config/discover", {
+      const res = await fetch(`${apiBase}/discover`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ providerName: name, provider: { ...provider, models: undefined } }),
@@ -355,7 +358,7 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
       if (requestId !== discoveryRequestIdRef.current) return;
       setDiscoveryState({ phase: "error", message: error instanceof Error ? error.message : String(error) });
     }
-  }, [discoveryState.phase, name, provider]);
+  }, [apiBase, discoveryState.phase, name, provider]);
 
   const existingModelIds = new Set((provider.models ?? []).map((model) => model.id));
   const discoveredModels = discoveryState.phase === "success" ? discoveryState.models : [];
@@ -407,15 +410,16 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
             <SectionTitle>{t("i18n.provider")}</SectionTitle>
           </ConfigDetailHeaderInfo>
           <ConfigDetailActions>
-            <EnabledModelsProviderSwitch providerId={name} controller={enabledModels} noteId={switchNoteId} />
+            {enabledModels && <EnabledModelsProviderSwitch providerId={name} controller={enabledModels} noteId={switchNoteId} />}
             <ConfigButton variant="danger" size="small" onClick={onDelete}>{t("i18n.delete")}</ConfigButton>
           </ConfigDetailActions>
         </ConfigDetailHeader>
-        <EnabledModelsProviderSwitchNote providerId={name} controller={enabledModels} id={switchNoteId} />
+        {enabledModels && <EnabledModelsProviderSwitchNote providerId={name} controller={enabledModels} id={switchNoteId} />}
       </div>
 
        <Field label={t("i18n.providerName")}>
-        <TextInput value={editingName} onChange={onEditingNameChange} placeholder="provider-name" mono />
+        <TextInput value={editingName} onChange={onEditingNameChange} placeholder="provider-name" mono readOnly={nameLocked} />
+        {nameLocked && <span className="settings-general-description">Saved provider IDs are fixed to preserve credentials and role references.</span>}
         {editingName !== name && editingName.trim() && (
           <button onClick={() => onRename(editingName.trim())}
             style={{ marginTop: 4, padding: "3px 10px", background: "var(--accent)", border: "none", borderRadius: 4, color: "var(--accent-contrast)", cursor: "pointer", fontSize: 11, alignSelf: "flex-start" }}>
@@ -428,7 +432,7 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
         <TextInput value={provider.baseUrl ?? ""} onChange={(v) => set("baseUrl", v || undefined)}
           placeholder="https://api.example.com/v1" mono />
         <span style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>
-          Leave empty for a built-in provider to use the endpoint pi ships
+          {apiBase.startsWith("/api/omp/") ? "Enter the provider endpoint, including /v1 for OpenAI-compatible local servers." : "Leave empty for a built-in provider to use the endpoint pi ships"}
         </span>
       </Field>
 
@@ -577,8 +581,10 @@ const LEVEL_COLORS: Record<ThinkingLevel, string> = {
 function ThinkingLevelMapEditor({
   value,
   onChange,
+  levels = THINKING_LEVELS,
 }: {
   value: Record<string, string | null> | undefined;
+  levels?: readonly ThinkingLevel[];
   onChange: (v: Record<string, string | null> | undefined) => void;
 }) {
   const map = value ?? {};
@@ -595,7 +601,7 @@ function ThinkingLevelMapEditor({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      {THINKING_LEVELS.map((level) => {
+      {levels.map((level) => {
         const raw = map[level];
         const state: "omit" | "null" | "string" =
           !(level in map) ? "omit" : raw === null ? "null" : "string";
@@ -825,19 +831,42 @@ function fillEmptyModelFields(
   return { model: next, appliedCount };
 }
 
-function ModelDetail({
+export function ModelDetail({
   providerName,
   provider,
   model,
+  apiBase = "/api/models-config",
   onChange,
   onDelete,
 }: {
+  apiBase?: string;
   providerName: string;
   provider: ProviderEntry;
   model: ModelEntry;
   onChange: (m: ModelEntry) => void;
   onDelete: () => void;
 }) {
+  const isOmp = apiBase.startsWith("/api/omp/");
+  const thinkingMap = (() => {
+    if (!isOmp) return model.thinkingLevelMap;
+    if (!model.thinking) return undefined;
+    const result: Record<string, string | null> = {};
+    for (const level of THINKING_LEVELS) {
+      if (level === "off") continue;
+      if (model.thinking.efforts && !model.thinking.efforts.includes(level)) result[level] = null;
+      else if (model.thinking.effortMap?.[level] !== undefined) result[level] = model.thinking.effortMap[level];
+    }
+    return result;
+  })();
+  const changeThinkingMap = (map: Record<string, string | null> | undefined) => {
+    if (!isOmp) { onChange({ ...model, thinkingLevelMap: map }); return; }
+    onChange({ ...model, thinking: map ? {
+      ...model.thinking,
+      mode: model.thinking?.mode ?? "effort",
+      efforts: THINKING_LEVELS.filter((level) => level !== "off" && map[level] !== null),
+      effortMap: Object.fromEntries(Object.entries(map).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
+    } : undefined });
+  };
   const [testState, setTestState] = useState<ModelTestState>({ phase: "idle" });
   const { t } = useI18n();
   const [catalogState, setCatalogState] = useState<ModelCatalogState>({ phase: "idle" });
@@ -882,7 +911,7 @@ function ModelDetail({
       testState.status !== undefined ? `HTTP ${testState.status}` : null,
     ].filter(Boolean);
     if (testState.phase === "success") {
-       return [t("i18n.connected"), ...meta, testState.responseText || null].filter(Boolean).join(" · ");
+       return [isOmp ? "Available" : t("i18n.connected"), ...meta, testState.responseText || null].filter(Boolean).join(" · ");
     }
      return [t("i18n.failed"), ...meta, testState.message].filter(Boolean).join(" · ");
   })();
@@ -901,7 +930,7 @@ function ModelDetail({
     if (!model.id.trim() || testState.phase === "testing") return;
     setTestState({ phase: "testing" });
     try {
-      const res = await fetch("/api/models-config/test", {
+      const res = await fetch(`${apiBase}/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ providerName, provider, model }),
@@ -931,7 +960,7 @@ function ModelDetail({
     } catch (e) {
       setTestState({ phase: "error", message: e instanceof Error ? e.message : String(e) });
     }
-  }, [model, provider, providerName, testState.phase]);
+  }, [apiBase, model, provider, providerName, testState.phase]);
 
   const handleCatalogFill = useCallback(async () => {
     const query = model.id.trim();
@@ -1033,8 +1062,8 @@ function ModelDetail({
     compatibilityOverrideCount
       ? t("models.compatSummary", { count: compatibilityOverrideCount })
       : null,
-    Object.keys(model.thinkingLevelMap ?? {}).length
-      ? t("models.thinkingSummary", { count: Object.keys(model.thinkingLevelMap ?? {}).length })
+    Object.keys(thinkingMap ?? {}).length
+      ? t("models.thinkingSummary", { count: Object.keys(thinkingMap ?? {}).length })
       : null,
   ].filter((part): part is string => Boolean(part));
   const advancedSummary = advancedSummaryParts.length
@@ -1076,7 +1105,7 @@ function ModelDetail({
             variant={testState.phase === "success" ? "primary" : "secondary"}
             onClick={testState.phase === "success" ? () => setTestState({ phase: "idle" }) : handleTest}
             disabled={!model.id.trim() || testState.phase === "testing"}
-            title={t("i18n.testConnection")}
+            title={apiBase.startsWith("/api/omp/") ? "Check that the endpoint lists this model (no inference request)" : t("i18n.testConnection")}
             className={testState.phase === "success" ? "is-success" : undefined}
           >
             {testState.phase === "success" && (
@@ -1084,7 +1113,7 @@ function ModelDetail({
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             )}
-             {testState.phase === "testing" ? t("i18n.checking") : testState.phase === "success" ? t("common.ok") : t("i18n.test")}
+             {testState.phase === "testing" ? t("i18n.checking") : testState.phase === "success" ? t("common.ok") : apiBase.startsWith("/api/omp/") ? "Check availability" : t("i18n.test")}
           </ConfigButton>
           <ConfigButton variant="danger" size="small" onClick={onDelete}>{t("i18n.remove")}</ConfigButton>
         </ConfigDetailActions>
@@ -1279,11 +1308,11 @@ function ModelDetail({
                 />
                 <div style={{ marginTop: 4 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                    <SectionTitle>{t("models.thinkingLevelMap")}</SectionTitle>
-                    {model.thinkingLevelMap && (
+                    <SectionTitle>{isOmp ? "OMP thinking efforts" : t("models.thinkingLevelMap")}</SectionTitle>
+                    {thinkingMap && (
                       <button
                         type="button"
-                        onClick={() => set("thinkingLevelMap", undefined)}
+                        onClick={() => changeThinkingMap(undefined)}
                         style={{ fontSize: 10, padding: "2px 5px", background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer" }}
                       >
                         {t("models.clearAll")}
@@ -1291,8 +1320,9 @@ function ModelDetail({
                     )}
                   </div>
                   <ThinkingLevelMapEditor
-                    value={model.thinkingLevelMap}
-                    onChange={(v) => set("thinkingLevelMap", v)}
+                    value={thinkingMap}
+                    levels={isOmp ? THINKING_LEVELS.filter((level) => level !== "off") : THINKING_LEVELS}
+                    onChange={changeThinkingMap}
                   />
                 </div>
               </div>
@@ -1306,8 +1336,8 @@ function ModelDetail({
 
 // ── OAuth detail ──────────────────────────────────────────────────────────────
 
-function OAuthDetail({ provider, onRefresh, enabledModels }: {
-  provider: OAuthProvider; onRefresh: () => void; enabledModels: EnabledModelsController;
+export function OAuthDetail({ provider, onRefresh, enabledModels, authBase = "/api/auth" }: {
+  provider: OAuthProvider; onRefresh: () => void; enabledModels?: EnabledModelsController; authBase?: string;
 }) {
   const [loginState, setLoginState] = useState<OAuthLoginState>({ phase: "idle" });
   const { t } = useI18n();
@@ -1327,7 +1357,7 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
     setInputValue("");
     eventSourceRef.current?.close();
     eventSourceRef.current = null;
-  }, [provider.id]);
+  }, [authBase, provider.id]);
 
   useEffect(() => {
     return () => { eventSourceRef.current?.close(); };
@@ -1338,7 +1368,7 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
     setLoginState({ phase: "connecting" });
     setInputValue("");
 
-    const es = new EventSource(`/api/auth/login/${encodeURIComponent(provider.id)}`);
+    const es = new EventSource(`${authBase}/login/${encodeURIComponent(provider.id)}`);
     eventSourceRef.current = es;
 
     es.onmessage = (e) => {
@@ -1382,19 +1412,19 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
       es.close();
       setLoginState((prev) => prev.phase === "success" ? prev : { phase: "error", message: "Connection lost" });
     };
-  }, [provider.id, onRefresh]);
+  }, [authBase, provider.id, onRefresh]);
 
   const handleLogout = useCallback(async () => {
-    await fetch(`/api/auth/logout/${encodeURIComponent(provider.id)}`, { method: "POST" });
+    await fetch(`${authBase}/logout/${encodeURIComponent(provider.id)}`, { method: "POST" });
     setLoginState({ phase: "idle" });
     onRefresh();
-  }, [provider.id, onRefresh]);
+  }, [authBase, provider.id, onRefresh]);
 
   const submitCode = useCallback(async (token: string, code: string) => {
     if (!code.trim()) return;
     setLoginState({ phase: "progress", message: "Verifying…" });
     try {
-      const res = await fetch(`/api/auth/login/${encodeURIComponent(provider.id)}`, {
+      const res = await fetch(`${authBase}/login/${encodeURIComponent(provider.id)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, code: code.trim() }),
@@ -1409,12 +1439,12 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
     } catch (e) {
       setLoginState({ phase: "error", message: e instanceof Error ? e.message : "Network error" });
     }
-  }, [provider.id]);
+  }, [authBase, provider.id]);
 
   const submitSelection = useCallback(async (token: string, value: string) => {
     setLoginState({ phase: "progress", message: "Continuing…" });
     try {
-      const res = await fetch(`/api/auth/login/${encodeURIComponent(provider.id)}`, {
+      const res = await fetch(`${authBase}/login/${encodeURIComponent(provider.id)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, code: value }),
@@ -1426,7 +1456,7 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
     } catch (e) {
       setLoginState({ phase: "error", message: e instanceof Error ? e.message : "Network error" });
     }
-  }, [provider.id]);
+  }, [authBase, provider.id]);
 
   const isWorking = loginState.phase === "connecting" || loginState.phase === "progress" ||
     loginState.phase === "auth" || loginState.phase === "device_code" ||
@@ -1436,7 +1466,7 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
     <div style={{ display: "flex", flexDirection: "column", gap: provider.loggedIn && loginState.phase === "idle" ? 0 : 16 }}>
       <ConfigDetailHeader>
         <ConfigDetailHeaderInfo>
-          <SectionTitle>{t("i18n.subscription")}</SectionTitle>
+          <SectionTitle>{authBase === "/api/auth" ? t("i18n.subscription") : "OMP login"}</SectionTitle>
         </ConfigDetailHeaderInfo>
         <ConfigDetailActions>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1461,7 +1491,7 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
               >
                  {provider.loggedIn ? t("i18n.relogin") : t("i18n.login")}
               </ConfigButton>
-              {provider.loggedIn && (
+              {provider.loggedIn && authBase === "/api/auth" && (
                 <ConfigButton
                   variant="danger"
                   size="small"
@@ -1554,9 +1584,9 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
         )}
       </div>
 
-      <ProviderUsageSummary providerId={provider.id} enabled={provider.loggedIn} />
+      {authBase === "/api/auth" ? <ProviderUsageSummary providerId={provider.id} enabled={provider.loggedIn} /> : <p className="settings-general-description">OMP stores this login in its own credential store. To disconnect, run omp and use /logout.</p>}
 
-      {provider.loggedIn && <EnabledModelsSection providerId={provider.id} controller={enabledModels} />}
+      {provider.loggedIn && enabledModels && <EnabledModelsSection providerId={provider.id} controller={enabledModels} />}
     </div>
   );
 }
@@ -1699,6 +1729,7 @@ function ApiKeyDetail({ provider, onRefresh, enabledModels }: {
 // ── Add provider picker ───────────────────────────────────────────────────────
 
 interface AddProviderPickerProps {
+  nativeLogin?: boolean;
   oauthProviders: OAuthProvider[];
   apiKeyProviders: ApiKeyProvider[];
   onSelectOAuth: (id: string) => void;
@@ -1707,8 +1738,8 @@ interface AddProviderPickerProps {
   onClose: () => void;
 }
 
-function AddProviderPicker({
-  oauthProviders, apiKeyProviders,
+export function AddProviderPicker({
+  oauthProviders, apiKeyProviders, nativeLogin = false,
   onSelectOAuth, onSelectApiKey, onAddCustom, onClose,
 }: AddProviderPickerProps) {
   const [search, setSearch] = useState("");
@@ -1796,7 +1827,7 @@ function AddProviderPicker({
               )}
 
               {availableOAuth.length > 0 && (
-                 <div style={{ gridColumn: "1 / -1", paddingTop: showCustom ? 6 : 0, fontSize: 10, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.07em" }}>{t("i18n.subscriptions")}</div>
+                 <div style={{ gridColumn: "1 / -1", paddingTop: showCustom ? 6 : 0, fontSize: 10, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.07em" }}>{nativeLogin ? "OMP native login" : t("i18n.subscriptions")}</div>
               )}
               {availableOAuth.map((p) => (
                 <button key={p.id} onClick={() => { onSelectOAuth(p.id); onClose(); }}
@@ -1806,14 +1837,14 @@ function AddProviderPicker({
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                    <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>OAuth</div>
+                    <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>{nativeLogin ? "OMP login" : "OAuth"}</div>
                   </div>
                   <ProviderIcon id={p.id} size={28} />
                 </button>
               ))}
 
               {availableApiKey.length > 0 && (
-                <div style={{ gridColumn: "1 / -1", paddingTop: availableOAuth.length > 0 ? 6 : 0, fontSize: 10, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.07em" }}>API Key</div>
+                <div style={{ gridColumn: "1 / -1", paddingTop: availableOAuth.length > 0 ? 6 : 0, fontSize: 10, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.07em" }}>{nativeLogin ? "Cloud & local endpoints" : "API Key"}</div>
               )}
               {availableApiKey.map((p) => (
                 <button key={p.id} onClick={() => { onSelectApiKey(p.id); onClose(); }}
