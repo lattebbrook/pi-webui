@@ -39,6 +39,7 @@ export async function GET(req: Request) {
       from: !isNaN(from as number) ? from : undefined,
       to: !isNaN(to as number) ? to : undefined,
       forceRefresh,
+      runtime: url.searchParams.get("runtime") === "omp" ? "omp" : "pi",
     });
 
     return NextResponse.json(report);

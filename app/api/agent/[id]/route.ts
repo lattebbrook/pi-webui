@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveSessionPath } from "@/lib/session-reader";
 import { startRpcSession, getRpcSession, setRpcSessionTools } from "@/lib/rpc-manager";
+import { isOmpSessionPath } from "@/lib/omp/omp-sessions";
 
 // POST /api/agent/[id] - Send a command to an existing session
 export async function POST(
@@ -27,6 +28,9 @@ export async function POST(
     const existing = getRpcSession(id);
     if (body.type === "set_tools") {
       const filePath = existing?.sessionFile || await resolveSessionPath(id) || undefined;
+      if (existing?.runtime === "omp" || isOmpSessionPath(filePath)) {
+        return NextResponse.json({ error: "Tools of an omp session are set by omp; tool presets apply to new sessions" }, { status: 400 });
+      }
       if (!existing?.isAlive() && !filePath) {
         return NextResponse.json({ error: "Session not found" }, { status: 404 });
       }

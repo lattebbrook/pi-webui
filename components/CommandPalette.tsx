@@ -11,6 +11,7 @@ import { THEME_OPTIONS, type ThemePreference } from "@/lib/theme";
 import type { SettingsSection } from "@/lib/settings-navigation";
 import type { SessionInfo } from "@/lib/types";
 import { paletteScore } from "@/lib/command-palette";
+import { setRuntime, useRuntime, withRuntime } from "@/lib/runtime-client";
 
 interface PaletteItem {
   id: string;
@@ -55,6 +56,7 @@ function relativeTime(iso: string, locale: string): string {
 export function CommandPalette({ onSelectSession, onNewSession, onOpenSettings }: Props) {
   const { t, locale } = useI18n();
   const { setThemePreference, preference } = useTheme();
+  const runtime = useRuntime();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
@@ -89,7 +91,7 @@ export function CommandPalette({ onSelectSession, onNewSession, onOpenSettings }
     setSelected(0);
     requestAnimationFrame(() => inputRef.current?.focus());
     let active = true;
-    void fetch("/api/sessions", { cache: "no-store" })
+    void fetch(withRuntime("/api/sessions"), { cache: "no-store" })
       .then((res) => (res.ok ? (res.json() as Promise<{ sessions?: SessionInfo[] }>) : null))
       .then((data) => {
         if (!active || !data?.sessions) return;
@@ -100,7 +102,7 @@ export function CommandPalette({ onSelectSession, onNewSession, onOpenSettings }
     return () => {
       active = false;
     };
-  }, [open]);
+  }, [open, runtime]);
 
   const items = useMemo<PaletteItem[]>(() => {
     const actions: PaletteItem[] = [];
@@ -112,6 +114,16 @@ export function CommandPalette({ onSelectSession, onNewSession, onOpenSettings }
         label: `${t("settings.title")}: ${t(section.label)}`,
         keywords: `settings preferences ${section.id}`,
         run: () => onOpenSettings(section.id),
+      });
+    }
+    for (const option of [{ id: "omp" as const, label: "OMP" }, { id: "pi" as const, label: "Pi" }]) {
+      if (option.id === runtime) continue;
+      actions.push({
+        id: `runtime:${option.id}`,
+        group: t("commandPalette.runtime"),
+        label: t("commandPalette.switchRuntime", { name: option.label }),
+        keywords: `agent runtime switch omp pi ${option.id}`,
+        run: () => setRuntime(option.id),
       });
     }
     for (const option of THEME_OPTIONS) {
@@ -133,7 +145,7 @@ export function CommandPalette({ onSelectSession, onNewSession, onOpenSettings }
       run: () => onSelectSession(session),
     }));
     return [...sessionItems, ...actions];
-  }, [sessions, onNewSession, onOpenSettings, onSelectSession, preference, setThemePreference, locale, t]);
+  }, [sessions, onNewSession, onOpenSettings, onSelectSession, preference, setThemePreference, locale, t, runtime]);
 
   const visible = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);

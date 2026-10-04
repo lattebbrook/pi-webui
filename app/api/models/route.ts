@@ -11,6 +11,7 @@ import {
 import { resolveVisibleModels, selectInitialModelScope } from "@/lib/model-scope";
 import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
 import { projectTrustReloadOptions } from "@/lib/project-trust";
+import { loadOmpModels } from "@/lib/omp/omp-models";
 
 export const dynamic = "force-dynamic";
 
@@ -109,7 +110,16 @@ const EMPTY_MODELS: ModelsData = {
 };
 
 export async function GET(req: Request) {
-  const requestedCwd = new URL(req.url).searchParams.get("cwd") || process.cwd();
+  const searchParams = new URL(req.url).searchParams;
+  // omp mode lists what omp itself offers (its models.yml, config.yml and logins).
+  if (searchParams.get("runtime") === "omp") {
+    try {
+      return Response.json(await loadModelsWithCache("runtime:omp", loadOmpModels));
+    } catch (error) {
+      return Response.json(withSafeModelLoadFailure({ ...EMPTY_MODELS, modelError: error instanceof Error ? error.message : String(error) }));
+    }
+  }
+  const requestedCwd = searchParams.get("cwd") || process.cwd();
   const cwd = resolve(requestedCwd);
 
   let cwdStat;

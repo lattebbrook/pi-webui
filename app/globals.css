@@ -2054,3 +2054,38 @@ span.token.table {
   color: var(--status-error);
   background: color-mix(in srgb, var(--status-error) 12%, transparent);
 }
+
+/* Agent runtime switch in the sidebar (components/RuntimeSwitch.tsx). */
+.runtime-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  margin-bottom: 10px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-hover);
+}
+.runtime-switch-option {
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.runtime-switch-option:hover:not(:disabled) {
+  color: var(--text);
+}
+.runtime-switch-option[data-selected="true"] {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border);
+}
+.runtime-switch-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

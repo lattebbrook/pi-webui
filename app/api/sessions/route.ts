@@ -13,6 +13,7 @@ import {
   getRunningRpcSessionIds,
 } from "@/lib/rpc-manager";
 import { startServerPerf } from "@/lib/perf";
+import { listOmpSessions } from "@/lib/omp/omp-sessions";
 
 export const dynamic = "force-dynamic";
 
@@ -24,15 +25,19 @@ export async function GET(req: Request) {
     // `summary=1` serves header/stat metadata so the sidebar can paint without
     // waiting for every session transcript to be parsed.
     const summary = searchParams.get("summary") === "1";
+    // Each runtime keeps its own history: pi in ~/.pi/agent, omp in ~/.omp/agent.
+    const runtime = searchParams.get("runtime") === "omp" ? "omp" : "pi";
     perf?.span("start");
-    const persistedSessionsPromise = summary
-      ? listSessionSummaries()
-      : listAllSessions({ force });
+    const persistedSessionsPromise = runtime === "omp"
+      ? listOmpSessions().then(attachSessionProjectInfo)
+      : summary
+        ? listSessionSummaries()
+        : listAllSessions({ force });
     // Capture before awaiting: mutations during the scan still require a later refresh.
     const sessionListVersion = getSessionListVersion();
     const [persistedSessions, runtimeSessions] = await Promise.all([
       persistedSessionsPromise,
-      attachSessionProjectInfo(getRpcSessionInfos()),
+      attachSessionProjectInfo(getRpcSessionInfos().filter((session) => (session.runtime ?? "pi") === runtime)),
     ]);
     perf?.span("scan+projects");
     const sessions = mergeSessionLists(persistedSessions, runtimeSessions);

@@ -155,7 +155,8 @@ test("session listing supports cheap summaries and honors force refresh", () => 
   assert.match(listRoute, /summary\s*\n?\s*\? listSessionSummaries\(\)/);
   assert.match(listRoute, /searchParams\.get\("force"\) === "1"/);
   assert.match(listRoute, /listAllSessions\(\{ force \}\)/);
-  assert.match(listRoute, /attachSessionProjectInfo\(getRpcSessionInfos\(\)\)/);
+  // Live sessions are filtered to the runtime being listed (pi or omp).
+  assert.match(listRoute, /attachSessionProjectInfo\(getRpcSessionInfos\(\)\.filter\(\(session\) => \(session\.runtime \?\? "pi"\) === runtime\)\)/);
   assert.match(listRoute, /mergeSessionLists\(persistedSessions, runtimeSessions\)/);
   assert.match(listRoute, /"Cache-Control": "no-store"/);
 });

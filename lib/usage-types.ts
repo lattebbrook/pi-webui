@@ -145,4 +145,6 @@ export interface UsageQueryOptions {
   from?: number;
   to?: number;
   forceRefresh?: boolean;
+  /** Whose sessions to report: pi's (~/.pi/agent) or omp's (~/.omp/agent). Default pi. */
+  runtime?: "pi" | "omp";
 }

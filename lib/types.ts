@@ -387,7 +387,12 @@ export interface SessionInfo {
   /** True while the runtime session exists only in memory and its JSONL file
    *  has not been created yet. Disk-backed actions must wait until this clears. */
   transient?: boolean;
+  /** Which agent owns the session: pi (in-process SDK) or omp (oh-my-pi over RPC). Absent means pi. */
+  runtime?: AgentRuntime;
 }
+
+/** The agent runtimes Pi WebUI can drive. */
+export type AgentRuntime = "pi" | "omp";
 
 export interface SessionContext {
   messages: AgentMessage[];

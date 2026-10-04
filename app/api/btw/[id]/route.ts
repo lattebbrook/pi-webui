@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { cancelBtw, listBtwRecords, startBtw } from "@/lib/btw-service";
 import { getRpcSession, startRpcSession } from "@/lib/rpc-manager";
+import { getOmpSession, OmpSessionWrapper } from "@/lib/omp/omp-session";
 import { resolveSessionPath } from "@/lib/session-reader";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,9 @@ type Params = { params: Promise<{ id: string }> };
 /** GET /api/btw/[id] — this session's side questions, newest first. Never starts the session. */
 export async function GET(_req: Request, { params }: Params) {
   const { id } = await params;
-  return NextResponse.json({ records: listBtwRecords(id) });
+  // omp answers /btw natively; its records live on the omp session.
+  const omp = getOmpSession(id);
+  return NextResponse.json({ records: omp ? omp.listBtw() : listBtwRecords(id) });
 }
 
 /**
@@ -38,7 +41,9 @@ export async function POST(req: Request, { params }: Params) {
     const existing = getRpcSession(id);
     const { session } = existing?.isAlive() ? { session: existing } : await startRpcSession(id, filePath, undefined);
     await session.waitUntilReady?.();
-    const record = startBtw(id, session.inner as unknown as AgentSession, body.question, body.recordId);
+    const record = session instanceof OmpSessionWrapper
+      ? await session.askBtw(body.question, body.recordId)
+      : startBtw(id, session.inner as unknown as AgentSession, body.question, body.recordId);
     return NextResponse.json({ record }, { status: 202 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
@@ -50,5 +55,6 @@ export async function DELETE(req: Request, { params }: Params) {
   const { id } = await params;
   const recordId = new URL(req.url).searchParams.get("recordId");
   if (!recordId) return NextResponse.json({ error: "recordId is required" }, { status: 400 });
-  return NextResponse.json({ cancelled: cancelBtw(id, recordId) });
+  const omp = getOmpSession(id);
+  return NextResponse.json({ cancelled: omp ? await omp.cancelBtw(recordId) : cancelBtw(id, recordId) });
 }

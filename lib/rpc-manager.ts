@@ -53,6 +53,9 @@ import {
   readSessionToolSelection,
   validateSessionToolSelection,
 } from "./session-tool-selection";
+import { getLiveOmpSessionInfos, getOmpSession, getRunningOmpSessionIds, startOmpSession, type OmpSessionWrapper } from "./omp/omp-session";
+import { isOmpSessionPath } from "./omp/omp-sessions";
+import type { AgentRuntime } from "./types";
 
 // ============================================================================
 // Types
@@ -201,7 +204,12 @@ export interface RpcSessionStartOptions {
   initialModel?: { provider: string; modelId: string };
   allowInitialModelFallback?: boolean;
   thinkingLevel?: ThinkingLevel;
+  /** For a new session: which agent runs it. Existing sessions follow their file's location. */
+  runtime?: AgentRuntime;
 }
+
+/** A live session of either runtime: pi in-process, or omp over RPC (lib/omp/omp-session.ts). */
+export type RuntimeSessionWrapper = AgentSessionWrapper | OmpSessionWrapper;
 
 const CODING_TOOL_NAMES = ["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"];
 const THINKING_LEVEL_NAMES = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
@@ -274,6 +282,7 @@ export function resolveActiveToolNames(
 // ============================================================================
 
 export class AgentSessionWrapper {
+  readonly runtime = "pi" as const;
   // A Set, not an array: an SSE stream unsubscribes from inside emit() when it
   // closes on session_shutdown, and splicing an array mid-iteration made the
   // next stream miss that same event.
@@ -1973,7 +1982,7 @@ const SUBAGENT_CONTROLLER = createSubagentController({
     registerRpcWrapper(wrapper);
   },
   reopenSession: async (sessionId, sessionFile) =>
-    (await startRpcSession(sessionId, sessionFile, undefined)).session,
+    (await startPiRpcSession(sessionId, sessionFile, undefined)).session,
   resolveSessionPath,
   invalidateSessionList: invalidateSessionListCache,
   isBuiltInSubagentsEnabled,
@@ -2052,7 +2061,12 @@ function trackStartingSession(cwd: string): () => void {
   };
 }
 
-export function getRpcSession(sessionId: string): AgentSessionWrapper | undefined {
+export function getRpcSession(sessionId: string): RuntimeSessionWrapper | undefined {
+  return getRegistry().get(sessionId) ?? getOmpSession(sessionId);
+}
+
+/** The live pi session for `sessionId`; omp sessions have no in-process AgentSession. */
+export function getPiRpcSession(sessionId: string): AgentSessionWrapper | undefined {
   return getRegistry().get(sessionId);
 }
 
@@ -2076,7 +2090,7 @@ export async function setRpcSessionTools(
   const toolNames = requestedToolNames === undefined
     ? undefined
     : validateSessionToolSelection(requestedToolNames);
-  const existing = getRpcSession(sessionId);
+  const existing = getPiRpcSession(sessionId);
 
   if (!existing?.isAlive()) {
     if (!sessionFile) throw new Error("Session not found");
@@ -2095,7 +2109,7 @@ export async function setRpcSessionTools(
     if (toolNames === undefined) appendClearedSessionToolSelection(manager);
     else appendSessionToolSelection(manager, toolNames);
     invalidateSessionListCache();
-    const started = await startRpcSession(sessionId, sessionFile, undefined);
+    const started = await startPiRpcSession(sessionId, sessionFile, undefined);
     return { session: started.session, sessionId: started.realSessionId, recreated: false };
   }
 
@@ -2127,11 +2141,11 @@ export async function setRpcSessionTools(
   await existing.shutdown();
 
   if (persistedFile) {
-    const started = await startRpcSession(sessionId, persistedFile, undefined);
+    const started = await startPiRpcSession(sessionId, persistedFile, undefined);
     return { session: started.session, sessionId: started.realSessionId, recreated: true };
   }
 
-  const started = await startRpcSession(`__recreate__${randomUUID()}`, "", sessionCwd, {
+  const started = await startPiRpcSession(`__recreate__${randomUUID()}`, "", sessionCwd, {
     ...(toolNames !== undefined ? { toolNames } : {}),
     ...(model ? { initialModel: { provider: model.provider, modelId: model.id } } : {}),
     allowInitialModelFallback: true,
@@ -2217,6 +2231,7 @@ export function getRpcSessionInfos(options: { includeTransient?: boolean } = {})
       transient: !persisted,
     });
   }
+  sessions.push(...getLiveOmpSessionInfos());
   return sessions;
 }
 
@@ -2242,6 +2257,7 @@ export function getRunningRpcSessionIds(): string[] {
   for (const [sessionId, session] of getRegistry()) {
     if (session.isRunning()) ids.add(session.sessionId || sessionId);
   }
+  for (const id of getRunningOmpSessionIds()) ids.add(id);
   return [...ids];
 }
 
@@ -2267,6 +2283,22 @@ export async function startRpcSession(
   sessionFile: string,
   cwd: string | undefined,
   options: RpcSessionStartOptions = {},
+): Promise<{ session: RuntimeSessionWrapper; realSessionId: string }> {
+  if (isOmpSessionPath(sessionFile) || (!sessionFile && options.runtime === "omp")) {
+    return startOmpSession(sessionId, sessionFile, cwd, {
+      ...(options.toolNames !== undefined ? { toolNames: options.toolNames } : {}),
+      ...(options.initialModel ? { initialModel: options.initialModel } : {}),
+      ...(options.thinkingLevel ? { thinkingLevel: options.thinkingLevel } : {}),
+    });
+  }
+  return startPiRpcSession(sessionId, sessionFile, cwd, options);
+}
+
+async function startPiRpcSession(
+  sessionId: string,
+  sessionFile: string,
+  cwd: string | undefined,
+  options: RpcSessionStartOptions = {},
 ): Promise<{ session: AgentSessionWrapper; realSessionId: string }> {
   const { initialModel, allowInitialModelFallback, thinkingLevel } = options;
   const requestedToolNames = options.toolNames === undefined
@@ -2286,7 +2318,7 @@ export async function startRpcSession(
     // Concurrent starts share this lock, then the one start that follows it.
     const waiting: Promise<{ session: AgentSessionWrapper; realSessionId: string }> = closingWait.then(() => {
       if (locks.get(sessionId) === waiting) locks.delete(sessionId);
-      return startRpcSession(sessionId, sessionFile, cwd, options);
+      return startPiRpcSession(sessionId, sessionFile, cwd, options);
     });
     locks.set(sessionId, waiting);
     return waiting;

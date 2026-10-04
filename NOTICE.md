@@ -34,3 +34,5 @@ Adapted from ompweb:
 | `lib/btw.ts`, `components/BtwPanel.tsx` | `/btw` side questions (record model and panel) |
 | `bin/pi-webui-launchd.js` | `bin/omp-web-launchd.js` |
 | `components/CommandPalette.tsx` | command palette (rewritten without cmdk) |
+| `lib/omp/paths.ts`, `lib/omp/omp-cli.ts`, `lib/omp/rpc-frame.ts`, `lib/omp/rpc-process.ts` | omp process layer (with tests) |
+| `lib/omp/omp-session.ts`, `lib/omp/omp-models.ts`, `lib/omp/omp-sessions.ts` | written for pi-webui, following ompweb's omp wrapper, models route and session-file handling |

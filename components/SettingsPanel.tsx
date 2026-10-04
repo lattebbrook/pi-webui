@@ -34,6 +34,11 @@ import { AgentsConfig } from "./AgentsConfig";
 import { PluginsConfig } from "./PluginsConfig";
 import { McpConfig } from "./McpConfig";
 import { UsageConfig } from "./UsageConfig";
+import { OmpConfig } from "./OmpConfig";
+import { useRuntime } from "@/lib/runtime-client";
+
+// Sections that configure pi itself; omp mode follows omp's own config instead (Settings › OMP).
+const PI_ONLY_SECTIONS = new Set<SettingsSection>(["models", "skills", "agents", "plugins", "mcp"]);
 import { ConfigButton, ConfigSwitch } from "./SettingsUi";
 
 interface Props {
@@ -72,6 +77,7 @@ export function SettingsSectionIcon({ section, size = 16, strokeWidth = 1.8 }: {
   if (section === "agents") return <svg {...common} className="settings-section-icon is-agent"><rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" /></svg>;
   if (section === "mcp") return <svg {...common}><rect x="3" y="3" width="18" height="7" rx="2" /><rect x="3" y="14" width="18" height="7" rx="2" /><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6" /></svg>;
   if (section === "usage") return <svg {...common}><path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></svg>;
+  if (section === "omp") return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M8 12h8M12 8v8" /></svg>;
   return <svg {...common}><path d="M9 7V2M15 7V2M6 13V8a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5a6 6 0 0 1-12 0ZM12 19v3" /></svg>;
 }
 
@@ -404,7 +410,20 @@ export function SettingsPanel({
   onProjectTrustChanged,
 }: Props) {
   const { t } = useI18n();
-  const [section, setSection] = useState<SettingsSection>(initialSection);
+  const runtime = useRuntime();
+  const forRuntime = (wanted: SettingsSection): SettingsSection =>
+    runtime === "omp" ? (PI_ONLY_SECTIONS.has(wanted) ? "omp" : wanted) : (wanted === "omp" ? "general" : wanted);
+  const [section, setSection] = useState<SettingsSection>(() => forRuntime(initialSection));
+  // Switching agent while Settings is open keeps you on a section that exists in that mode.
+  useEffect(() => {
+    setSection((current) => {
+      const next = runtime === "omp"
+        ? (PI_ONLY_SECTIONS.has(current) ? "omp" : current)
+        : (current === "omp" ? "general" : current);
+      if (next !== current) setMountedSections((mounted) => new Set(mounted).add(next));
+      return next;
+    });
+  }, [runtime]);
   const [mountedSections, setMountedSections] = useState<ReadonlySet<SettingsSection>>(
     () => new Set([section]),
   );
@@ -416,8 +435,11 @@ export function SettingsPanel({
     { id: "agents", label: t("common.agents") },
     { id: "plugins", label: t("common.plugins") },
     { id: "mcp", label: t("settings.mcp") },
+    { id: "omp", label: "OMP" },
     { id: "usage", label: t("settings.usage") },
-  ] as const).map((item) => ({ ...item, requiresProject: settingsSectionRequiresProject(item.id) }));
+  ] as const)
+    .filter((item) => (runtime === "omp" ? !PI_ONLY_SECTIONS.has(item.id) : item.id !== "omp"))
+    .map((item) => ({ ...item, requiresProject: settingsSectionRequiresProject(item.id) }));
   const sectionRequiresProject = settingsSectionRequiresProject(section);
 
   useEffect(() => setLastSettingsSection(initialSection), [initialSection]);
@@ -517,6 +539,7 @@ export function SettingsPanel({
           {cwd && sectionHost("plugins", <PluginsConfig embedded key={cwd} cwd={cwd} sessionId={sessionId} trust={projectTrust} onClose={onClose} onReloaded={onSessionReloaded} />)}
           {/* No project needed: the global mcp.json is listed alone, and a project adds its group. */}
           {sectionHost("mcp", <McpConfig embedded key={cwd ?? ""} cwd={cwd} trust={projectTrust} onTrustProject={onOpenTrustDialog} onProjectTrustChanged={onProjectTrustChanged} onClose={onClose} />)}
+          {sectionHost("omp", <OmpConfig />)}
           {sectionHost("usage", <div className="usage-config"><UsageConfig /></div>)}
         </main>
       </div>

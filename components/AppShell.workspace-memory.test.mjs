@@ -79,6 +79,8 @@ test("New restores the draft after session navigation and workspace auto-restore
         window: { location: { pathname: "/", search: "" } },
         router: { replace() {} },
         fetch: () => response.promise,
+        // lib/runtime-client.ts: session lookups name the active runtime (omp/pi).
+        withRuntime: (url) => url,
         getLastOpenSession: (key) => key === cwd ? session.id : null,
         clearLastOpen() {},
         workspaceKeyOf: (value) => value.projectKey ?? value.cwd,

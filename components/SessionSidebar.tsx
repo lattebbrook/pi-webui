@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
-import type { SessionInfo } from "@/lib/types";
+import type { AgentRuntime, SessionInfo } from "@/lib/types";
+import { useRuntime, withRuntime } from "@/lib/runtime-client";
+import { RuntimeSwitch } from "./RuntimeSwitch";
 import { listSessionFamilies } from "@/lib/session-family";
 import { loadExplorerOpen, saveExplorerOpen } from "@/lib/file-explorer-state";
 import { dispatchSessionRowContextMenu } from "@/lib/session-row-context-menu";
@@ -112,10 +114,10 @@ function ToolbarIconButton({
   );
 }
 
-function sessionListUrl(summary: boolean, force: boolean): string {
-  if (summary) return "/api/sessions?summary=1";
-  if (force) return "/api/sessions?force=1";
-  return "/api/sessions";
+function sessionListUrl(summary: boolean, force: boolean, runtime: AgentRuntime): string {
+  if (summary) return withRuntime("/api/sessions?summary=1", runtime);
+  if (force) return withRuntime("/api/sessions?force=1", runtime);
+  return withRuntime("/api/sessions", runtime);
 }
 
 interface Props {
@@ -397,6 +399,7 @@ function PiWebTitle() {
 
 export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSession, initialSessionId, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onSessionsChange }: Props) {
   const { t } = useI18n();
+  const runtime = useRuntime();
   const [allSessions, setAllSessions] = useState<SessionInfo[]>([]);
   // Tracked in a ref only: the version is compared against the polled value to
   // decide whether the list needs reloading, and no render reads it.
@@ -523,7 +526,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     const loadId = ++sessionLoadIdRef.current;
     try {
       if (showLoading) setLoading(true);
-      const res = await fetch(sessionListUrl(summary, force), {
+      const res = await fetch(sessionListUrl(summary, force, runtime), {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -562,7 +565,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     } finally {
       if (loadId === sessionLoadIdRef.current) setLoading(false);
     }
-  }, []);
+  }, [runtime]);
 
   const initialLoadDone = useRef(false);
   useEffect(() => {
@@ -1250,6 +1253,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
             </button>
           </div>
         </div>
+        <RuntimeSwitch />
 
         {/* CWD picker */}
         <div ref={dropdownRef} style={{ position: "relative" }}>

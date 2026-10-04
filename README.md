@@ -7,9 +7,31 @@ documentation and still applies.
 
 ## What this fork adds
 
+### Two agents in one UI: omp and pi
+
+Pi WebUI drives either **[oh-my-pi (omp)](https://github.com/can1357/oh-my-pi)** or **pi**.
+The **OMP / Pi** switch at the top of the sidebar changes agent instantly; both are live
+in the same server, so nothing restarts. omp is the default when it is installed.
+
+| | omp mode | pi mode |
+|---|---|---|
+| Runs as | `omp --mode rpc-ui` per open chat (JSON over stdio) | pi's SDK inside the server |
+| Sessions | `~/.omp/agent/sessions` | `~/.pi/agent/sessions` |
+| Models, default model, thinking | omp's `models.yml`, `config.yml` and logins | pi's `models.json`, `settings.json` and logins |
+| Settings | General, **OMP** (read-only view of omp's config), Usage | General, Models, Skills, Sub-agents, Plugins, MCP, Usage |
+| `/btw` | omp's own side questions | pi-webui's side questions on the session's model |
+
+omp transcripts are shown through read-only shadow copies under
+`~/.pi/agent/pi-webui/omp-shadow`; only omp itself writes omp's files. Set
+`PI_WEBUI_OMP_BIN` if `omp` is not on `PATH`, and `PI_WEBUI_OMP_AGENT_DIR` to point at a
+non-default omp agent directory. Not yet available for omp sessions: in-session branch
+navigation, cloning, changing tools on a running chat, and extension custom UI.
+
+### Everything else
+
 | Feature | Where | Notes |
 |---|---|---|
-| **Usage dashboard** | Settings › Usage | Tokens and cost per provider, model, day and project, read from every pi session transcript (subagents included) and cached in `~/.pi/agent/pi-webui/usage.db`. |
+| **Usage dashboard** | Settings › Usage | Tokens and cost per provider, model, day and project for the active agent's sessions (subagents included), cached under `~/.pi/agent/pi-webui/`. |
 | **`/btw` side questions** | `/btw <question>` in the composer | Asks the session's own model about the session without adding anything to the transcript. Works while the agent is running; follow up, cancel and copy from the panel. `/btw` alone reopens the last answer. |
 | **Voice dictation** | Mic button in the composer | Records in the browser and transcribes through any OpenAI-compatible `/audio/transcriptions` endpoint. Shown only when configured (see below). |
 | **Command palette** | ⌘K / Ctrl+K | Jump to a session, start a chat, open a Settings section, switch theme. |

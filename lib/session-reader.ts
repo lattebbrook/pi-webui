@@ -14,6 +14,7 @@ import { MAX_TOOL_RESULT_IMAGE_BYTES, TOOL_RESULT_IMAGE_MIMES } from "./tool-res
 import { resolveProject, type ProjectInfo } from "./worktree";
 import { readSubagentRun, SUBAGENT_META_TYPE } from "./subagents";
 import { listSessionsIncremental, type ScannedSessionInfo } from "./session-list-scanner";
+import { ensureOmpShadow, findOmpSessionPathById, isOmpSessionPath, readOmpSessionHeader } from "./omp/omp-sessions";
 
 export { getAgentDir };
 
@@ -513,6 +514,12 @@ export function openSessionManager(
   filePath: string,
   options: { mutable?: boolean } = {},
 ): SessionManager {
+  // omp sessions are read through a sanitized shadow copy (lib/omp/omp-sessions.ts);
+  // only omp itself writes its files, so a mutable open has nothing safe to return.
+  if (isOmpSessionPath(filePath)) {
+    if (options.mutable) throw new Error("omp sessions are changed through omp, not edited in place");
+    filePath = ensureOmpShadow(filePath);
+  }
   if (options.mutable) return SessionManager.open(filePath, undefined);
 
   const cache = getSmCache();
@@ -549,6 +556,13 @@ export async function resolveSessionPath(sessionId: string): Promise<string | nu
   const targetedPath = await findSessionPathById(sessionId);
   if (targetedPath) {
     cacheSessionPath(sessionId, targetedPath);
+    return getPathCache().get(sessionId) ?? null;
+  }
+
+  // Not a pi session: it may be one of omp's (~/.omp/agent/sessions).
+  const ompPath = await findOmpSessionPathById(sessionId);
+  if (ompPath) {
+    cacheSessionPath(sessionId, ompPath);
     return getPathCache().get(sessionId) ?? null;
   }
 
@@ -606,6 +620,7 @@ export function invalidateSessionPathCache(sessionId: string): void {
 }
 
 export function readSessionHeader(filePath: string): SessionHeader | null {
+  if (isOmpSessionPath(filePath)) return readOmpSessionHeader(filePath);
   const firstLine = readBoundedLines(filePath, SESSION_HEADER_MAX_BYTES, 1)[0]?.trimEnd();
   if (!firstLine) return null;
   try {

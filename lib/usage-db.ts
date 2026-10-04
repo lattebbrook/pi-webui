@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { basename, dirname, join } from "path";
 import { readModelsConfig, type ModelsFileConfig } from "./usage-sources";
 import { getAgentDir, getSessionsDir } from "./usage-sources";
+import { getSessionsDir as getOmpSessionsDir } from "./omp/paths";
 import { listSessionArtifactTranscripts, listSessionFiles } from "./usage-sources";
 import {
   formatChartDateLabel,
@@ -391,7 +392,8 @@ export async function getUsageReportFromDb(
   const granularity = options.granularity || "daily";
   const projectFilter = options.project ? options.project.trim().toLowerCase() : undefined;
 
-  const db = customDb || getUsageDatabase();
+  const omp = options.runtime === "omp";
+  const db = customDb || getUsageDatabase(omp ? join(getAgentDir(), "pi-webui", "usage-omp.db") : undefined);
   if (options.forceRefresh) {
     try {
       db.exec("DELETE FROM synced_files; DELETE FROM usage_records;");
@@ -402,9 +404,10 @@ export async function getUsageReportFromDb(
 
   // Sync latest sessions (and the helper transcripts in their artifacts
   // directories) from disk before querying
-  const sessionsDir = getSessionsDir();
+  const sessionsDir = omp ? getOmpSessionsDir() : getSessionsDir();
   const sessionFiles = existsSync(sessionsDir) ? await listSessionFiles(sessionsDir) : [];
-  syncSessionFilesToDb(sessionFiles, readModelsConfig(), db);
+  // omp prices its own requests (usage.cost); pi's models.json says nothing about omp's providers.
+  syncSessionFilesToDb(sessionFiles, omp ? { providers: {} } : readModelsConfig(), db);
   collectUncountedUsage(db);
   const hasExplicitBounds =
     typeof options.from === "number" &&

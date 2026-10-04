@@ -125,9 +125,10 @@ test("offers the downstream context-menu hook only on a normal session row", () 
 });
 
 test("lifecycle refreshes bypass the cache while cross-window polling reuses it", () => {
-  assert.match(source, /function sessionListUrl\(summary: boolean, force: boolean\)/);
-  assert.match(source, /if \(summary\) return "\/api\/sessions\?summary=1"/);
-  assert.match(source, /if \(force\) return "\/api\/sessions\?force=1"/);
+  // Each runtime (omp/pi) has its own history; the URL names which one to list.
+  assert.match(source, /function sessionListUrl\(summary: boolean, force: boolean, runtime: AgentRuntime\)/);
+  assert.match(source, /if \(summary\) return withRuntime\("\/api\/sessions\?summary=1", runtime\)/);
+  assert.match(source, /if \(force\) return withRuntime\("\/api\/sessions\?force=1", runtime\)/);
   assert.match(source, /cache: "no-store"/);
   // First paint uses the cheap summary listing, then hydrates after a delay.
   assert.match(source, /loadSessions\(true, false, true\)/);

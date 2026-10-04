@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/hooks/useI18n";
+import { useRuntime } from "@/lib/runtime-client";
 
 type IconProps = { size?: number; className?: string; style?: React.CSSProperties; strokeWidth?: number };
 function svgIcon(paths: React.ReactNode) {
@@ -51,6 +52,7 @@ function formatCurrency(amount: number): string {
 
 export function UsageConfig() {
   const { t } = useI18n();
+  const runtime = useRuntime();
 
   const [timeRange, setTimeRange] = useState<UsageTimeRange>("30d");
   const [granularity, setGranularity] = useState<UsageGranularity>("daily");
@@ -80,6 +82,7 @@ export function UsageConfig() {
         });
         if (isRefresh) params.set("refresh", "true");
 
+        params.set("runtime", runtime);
         const res = await fetch(`/api/usage?${params.toString()}`, { signal });
         if (!res.ok) {
           throw new Error(`Failed to fetch usage: ${res.statusText}`);
@@ -96,7 +99,7 @@ export function UsageConfig() {
         setRefreshing(false);
       }
     },
-    [timeRange, granularity],
+    [timeRange, granularity, runtime],
   );
 
   useEffect(() => {

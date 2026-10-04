@@ -38,6 +38,9 @@ function setup(fetchImpl) {
     sessionIdRef: { current: null }, thinkingLevelOverrideRef: { current: null },
     thinkingLevelPinsRef: { current: {} }, defaultThinkingLevelRef: { current: null },
     asConcreteThinkingLevel: (value) => (!value || value === "auto" ? null : value),
+    // lib/runtime-client.ts: the models URL names the runtime whose models to list.
+    activeRuntime: "pi", sessionRuntime: null,
+    withRuntime: (url, runtime) => `${url}${url.includes("?") ? "&" : "?"}runtime=${runtime}`,
     fetch: fetchImpl,
     MODELS_RETRY_DELAYS_MS: script(schedule.initializer.getText(source)).runInNewContext(),
     delay: async (ms) => { delays.push(ms); },

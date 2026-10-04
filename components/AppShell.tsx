@@ -63,6 +63,7 @@ import type { FileViewerState } from "@/lib/file-viewer-state";
 import type { ToolEntry } from "@/lib/tool-presets";
 import { getSessionFamily } from "@/lib/session-family";
 import { getLastSettingsSection, settingsSectionRequiresProject, type SettingsSection } from "@/lib/settings-navigation";
+import { runtimeOfSession, useRuntime, withRuntime } from "@/lib/runtime-client";
 
 type SessionCopyField = "file" | "id" | "projectDir" | "gitBranch" | "gitWorktree";
 type AutoNameStatus =
@@ -393,6 +394,7 @@ export function AppShell() {
   // The ⌘K palette starts a chat where the sidebar's New button would.
   const paletteCwd = selectedSession?.cwd ?? newSessionCwd ?? null;
 
+
   const handleSidebarToggle = useCallback(() => {
     if (isMobile) {
       setActiveTopPanel(null);
@@ -660,7 +662,7 @@ export function AppShell() {
       adopt({ sessions: sessionCatalog });
       return;
     }
-    void fetch("/api/sessions")
+    void fetch(withRuntime("/api/sessions"))
       .then((r) => (r.ok ? (r.json() as Promise<{ sessions: SessionInfo[] }>) : null))
       .then(adopt)
       .catch(() => {
@@ -820,7 +822,6 @@ export function AppShell() {
     if (isMobile) setSidebarOpen(false);
     router.replace(`?cwd=${encodeURIComponent(cwd)}`, { scroll: false });
   }, [invalidateWorkspaceRestore, router, isMobile]);
-
   // Global keyboard shortcuts (handles Esc, Ctrl+Alt+N etc.)
   useGlobalKeyboardShortcuts({
     onNewSession: (cwd: string) => handleNewSession(`kb-${Date.now()}`, cwd),
@@ -832,7 +833,7 @@ export function AppShell() {
   // handleCwdChange relies on. Hydrate it from the session list so switching
   // worktrees right after creating a session doesn't close the chat.
   const hydrateSelectedSession = useCallback((sessionId: string) => {
-    void fetch("/api/sessions", { cache: "no-store" })
+    void fetch(withRuntime("/api/sessions"), { cache: "no-store" })
       .then((r) => (r.ok ? (r.json() as Promise<{ sessions: SessionInfo[] }>) : null))
       .then((d) => {
         const full = d?.sessions.find((s) => s.id === sessionId);
@@ -845,6 +846,22 @@ export function AppShell() {
       })
       .catch(() => {});
   }, []);
+
+  // Switching agent (omp ⇄ pi) leaves a chat that belongs to the other one for a
+  // new chat in the same project; both runtimes stay live, so nothing restarts.
+  const activeRuntime = useRuntime();
+  const previousRuntimeRef = useRef(activeRuntime);
+  useEffect(() => {
+    if (previousRuntimeRef.current === activeRuntime) return;
+    previousRuntimeRef.current = activeRuntime;
+    if (!selectedSession || runtimeOfSession(selectedSession) === activeRuntime) return;
+    const cwd = selectedSession.cwd;
+    if (!cwd) return;
+    const draftId = typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    handleNewSession(draftId, cwd);
+  }, [activeRuntime, selectedSession, handleNewSession]);
 
   const handleOpenSession = useCallback(async (sessionId: string) => {
     // Prefer the catalogue the sidebar already delivered: selecting from it
