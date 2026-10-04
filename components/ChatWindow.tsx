@@ -12,6 +12,8 @@ import { buildQuotedSelection } from "@/lib/quoted-selection";
 import { MessageView } from "./MessageView";
 import { MarkdownBody } from "./MarkdownBody";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
+import { BtwPanel } from "./BtwPanel";
+import { useBtw } from "@/hooks/useBtw";
 import { ChatMinimap, useMessageRefs } from "./ChatMinimap";
 import { ExtensionStatusBar } from "./ExtensionStatusBar";
 import { AnsiText } from "./AnsiText";
@@ -255,6 +257,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
   });
   const [restoreAnchorReady, setRestoreAnchorReady] = useState(false);
 
+  const btw = useBtw(session?.id ?? null);
   const {
     loading, error, messages, activeToolResults, entryIds, historyCursor, hasEarlierMessages, streamState,
     agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, toolPreset, thinkingLevel,
@@ -282,6 +285,8 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
     session, sessionRunning, newSessionCwd, newSessionDraftKey, onAgentEnd: wrappedOnAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked,
     modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsPanelOpen,
     onOpenSettings,
+    onSideQuestion: btw.ask,
+    onOpenSideQuestion: btw.openLatest,
     deferInitialScroll: Boolean(pendingScrollRestore),
   });
   const sessionBusy = agentRunning || bashRunning;
@@ -891,6 +896,18 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? newSessionDraftKey ?? undefined}
       cwd={session?.cwd ?? newSessionCwd}
+      sidePanel={btw.active ? (
+        <BtwPanel
+          key={btw.active.id}
+          record={btw.active}
+          error={btw.error}
+          cwd={session?.cwd ?? newSessionCwd}
+          onCancel={() => void btw.cancel(btw.active!.id)}
+          onOpenFile={onOpenFile}
+          onFollowUp={async (question) => Boolean(session) && (await btw.ask(session!.id, question, btw.active!.id)) === null}
+          onClose={() => { btw.setActiveId(null); btw.setError(null); }}
+        />
+      ) : null}
     />
   );
 

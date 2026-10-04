@@ -162,7 +162,7 @@ export interface SlashCommandInfo {
 
 export type BuiltinSlashCommandResult =
   | { handled: false }
-  | { handled: true; message?: string; error?: string; action?: "openSessionStats" | "openSettings" };
+  | { handled: true; message?: string; error?: string; action?: "openSessionStats" | "openSettings" | "openSideQuestion" };
 
 export interface UseAgentSessionOptions {
   session: SessionInfo | null;
@@ -181,6 +181,10 @@ export interface UseAgentSessionOptions {
   /** Registers an action that lazily starts the session and loads its prompt and tools. */
   onSystemInfoLoaderChange?: (loader: (() => Promise<void>) | null) => void;
   onSessionStatsPanelOpen?: () => void;
+  /** `/btw <question>`: ask a side question; resolves to an error message when refused. */
+  onSideQuestion?: (sessionId: string, question: string) => Promise<string | null>;
+  /** `/btw` alone: reopen the newest side question; false when there is none. */
+  onOpenSideQuestion?: () => boolean;
   /** Opens Settings on a section; a bare `/mcp` the built-in MCP extension owns opens Settings › MCP. */
   onOpenSettings?: (section: SettingsSection) => void;
   setToolPreset?: (preset: ToolPreset) => void;
@@ -316,6 +320,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const {
     session, newSessionCwd, newSessionDraftKey, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked,
     modelsRefreshKey, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsPanelOpen,
+    onSideQuestion, onOpenSideQuestion,
     onOpenSettings,
   } = opts;
 
@@ -2118,6 +2123,18 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           return complete({ handled: true, action: "openSettings" });
         }
 
+        case "btw": {
+          if (!sid) return complete({ handled: true, error: "No active session" });
+          if (!onSideQuestion || !onOpenSideQuestion) return { handled: false };
+          if (!args) {
+            return onOpenSideQuestion()
+              ? complete({ handled: true, action: "openSideQuestion" })
+              : complete({ handled: true, error: "No side questions yet. Ask one with /btw <question>." });
+          }
+          const refused = await onSideQuestion(sid, args);
+          return complete(refused ? { handled: true, error: refused } : { handled: true, action: "openSideQuestion" });
+        }
+
         case "copy": {
           if (!sid) return complete({ handled: true, error: "No active session" });
           const data = await sendAgentCommand<LastAssistantTextResponse>(sid, { type: "get_last_assistant_text" });
@@ -2152,7 +2169,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     } finally {
       if (commandName === "compact") setIsCompacting(false);
     }
-  }, [activeLeafId, addNotice, ensureNewSession, isCompacting, loadModels, loadSession, loadSlashCommands, loadTools, promoteNewSession, onOpenSettings, onSessionForked, onSessionStatsPanelOpen, slashCommandsForMcp]);
+  }, [activeLeafId, addNotice, ensureNewSession, isCompacting, loadModels, loadSession, loadSlashCommands, loadTools, promoteNewSession, onOpenSettings, onSessionForked, onSessionStatsPanelOpen, onSideQuestion, onOpenSideQuestion, slashCommandsForMcp]);
 
   // Let AgentSession.prompt decide atomically whether to queue against the
   // current run or start a new turn if it settled while the request was in
