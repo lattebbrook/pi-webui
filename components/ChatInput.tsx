@@ -482,7 +482,6 @@ function QueuedMessageRow({ kind, text }: { kind: "steer" | "follow-up"; text: s
         style={{
           flexShrink: 0,
           fontSize: 10,
-          fontFamily: "var(--font-mono)",
           padding: "1px 7px",
           borderRadius: 999,
           border: `1px solid ${kind === "steer" ? "color-mix(in srgb, var(--accent) 45%, transparent)" : "var(--border)"}`,
@@ -1783,7 +1782,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             }}>
               <span style={{
                 fontSize: 10,
-                fontFamily: "var(--font-mono)",
                 color: "var(--text-dim)",
                 textTransform: "uppercase",
                 letterSpacing: 0.4,
@@ -1871,7 +1869,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               border: "1px solid rgba(239,68,68,0.3)",
               borderRadius: 6,
               color: "#ef4444",
-              fontFamily: "var(--font-mono)",
               fontSize: 12,
               lineHeight: 1.5,
               whiteSpace: "pre-wrap",
@@ -1919,6 +1916,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           {historyMenuOpen && inputHistory.length > 0 && (
             <div
               ref={historyMenuRef}
+              className="ui-popover"
               style={{
                 position: "absolute",
                 left: 0,
@@ -1991,7 +1989,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         lineHeight: 1.45,
                       }}
                     >
-                      <span style={{ flexShrink: 0, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", paddingTop: 1 }}>
+                      <span style={{ flexShrink: 0, fontVariantNumeric: "tabular-nums", fontSize: 11, color: "var(--text-dim)", paddingTop: 1 }}>
                         {index + 1}
                       </span>
                       <span style={{ minWidth: 0, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", overflowWrap: "anywhere" }}>
@@ -2006,6 +2004,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           {slashMenuOpen && slashQuery !== null && (
             <div
               ref={slashMenuRef}
+              className="ui-popover"
               style={{
                 position: "absolute",
                 left: 0,
@@ -2165,6 +2164,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             return (
               <div
                 ref={atMenuRef}
+                className="ui-popover"
                 style={{
                   position: "absolute",
                   left: 0,
@@ -2265,14 +2265,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               flexDirection: compact ? "column" : "row",
               gap: 8,
               alignItems: compact ? "stretch" : "center",
-              background: "var(--bg)",
+              background: compact ? "var(--bg)" : "var(--composer-bg, var(--bg))",
               border: compact ? "none" : `1px solid ${bashMode ? "var(--tool-bg)" : isStreaming && (onSteer || onFollowUp)
                 ? "rgba(234,179,8,0.4)"
                 : "color-mix(in srgb, var(--border) 70%, transparent)"}`,
-              borderRadius: compact ? 0 : 14,
-              padding: compact ? 0 : isMobile ? "6px 6px 6px 12px" : "10px 10px 10px 14px",
-              boxShadow: compact ? "none" : "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10)",
-              transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
+              borderRadius: compact ? 0 : 20,
+              padding: compact ? 0 : isMobile ? "6px 6px 6px 14px" : "10px 10px 10px 16px",
+              boxShadow: compact ? "none" : "var(--composer-shadow)",
+              transition: "border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out)",
             } as React.CSSProperties}
           >
           {dictationActive ? (
@@ -2426,25 +2426,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 flexShrink: 0,
                 alignSelf: "flex-end",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                // Mobile: icon-only so the placeholder and draft keep the width.
-                ...(isMobile ? { width: 36, height: 36, padding: 0 } : { padding: "7px 14px" }),
-                background: (dictationCapturing || value.trim() || attachedImages.length) ? "var(--accent)" : "var(--bg-panel)",
+                // Codex-style round icon button (label in title/aria-label); the compact
+                // quote composer keeps a labelled pill, clearer inside its small popover.
+                ...(compact
+                  ? { padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600 }
+                  : { width: isMobile ? 36 : 32, height: isMobile ? 36 : 32, padding: 0, borderRadius: 999 }),
+                background: (dictationCapturing || value.trim() || attachedImages.length) ? "var(--accent)" : "color-mix(in srgb, var(--text) 12%, transparent)",
                 border: "none",
-                borderRadius: 8,
                 color: (dictationCapturing || value.trim() || attachedImages.length) ? "var(--accent-contrast)" : "var(--text-dim)",
                 cursor: (dictationCapturing || value.trim() || attachedImages.length) ? "pointer" : "not-allowed",
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: "-0.01em",
-                boxShadow: (value.trim() || attachedImages.length) ? "0 1px 3px color-mix(in srgb, var(--accent) 25%, transparent)" : "none",
-                transition: "background 0.15s, box-shadow 0.15s",
+                transition: "background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out)",
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="2" y1="7" x2="11" y2="7" />
-                <polyline points="7.5 3 12 7 7.5 11" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 19V5" />
+                <path d="m5 12 7-7 7 7" />
               </svg>
-              {!isMobile && t("chat.send")}
+              {compact && t("chat.send")}
             </button>
           )}
           </div>

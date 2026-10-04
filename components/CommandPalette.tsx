@@ -208,9 +208,10 @@ export function CommandPalette({ onSelectSession, onNewSession, onOpenSettings }
       aria-modal="true"
       aria-label={t("commandPalette.label")}
       onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}
+      className="ui-backdrop"
       style={{ position: "fixed", inset: 0, zIndex: 2000, background: "color-mix(in srgb, var(--text) 18%, transparent)", paddingTop: "18vh" }}
     >
-      <div style={{ width: "min(92vw, 560px)", margin: "0 auto", overflow: "hidden", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 24px 64px -16px rgba(0,0,0,0.35)" }}>
+      <div className="ui-popover" style={{ width: "min(92vw, 560px)", margin: "0 auto", overflow: "hidden", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 24px 64px -16px rgba(0,0,0,0.35)" }}>
         <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
           <input
             ref={inputRef}

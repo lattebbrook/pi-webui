@@ -246,6 +246,7 @@ export function ModelSelector({
             ref={panelRef}
             role="listbox"
             aria-label={ariaLabel}
+            className="ui-popover"
             style={{
               position: "fixed",
               ...verticalPosition,
@@ -284,8 +285,7 @@ export function ModelSelector({
                     outline: "none",
                     background: "var(--bg)",
                     color: "var(--text)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
+                    fontSize: 12,
                   }}
                 />
               </div>

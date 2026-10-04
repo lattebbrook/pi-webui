@@ -1399,5 +1399,6 @@ export const zhCNLocale: LocalePlugin = {
     "commandPalette.current": "当前",
     "commandPalette.newSession": "在此项目中新建对话",
     "commandPalette.hints": "↑↓ 移动 · Enter 打开 · Esc 关闭 · ⌘K / Ctrl+K 切换",
+    "chat.dropImages": "拖放图片以附加",
   },
 };

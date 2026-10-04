@@ -83,7 +83,9 @@ test("collapses secondary composer chrome while the mobile keyboard is open", ()
   assert.match(cssSource, /html\[data-keyboard-open\] \.chat-input-shell \{\s*padding-bottom: 6px !important;/);
   // Mobile send is icon-only but keeps an accessible name.
   assert.match(chatInputSource, /aria-label=\{t\("chat\.send"\)\}/);
-  assert.match(chatInputSource, /\{!isMobile && t\("chat\.send"\)\}/);
+  // Send is a round icon button (Codex-style) on every width; only the compact quote composer shows the label.
+  assert.match(chatInputSource, /width: isMobile \? 36 : 32, height: isMobile \? 36 : 32, padding: 0, borderRadius: 999/);
+  assert.match(chatInputSource, /\{compact && t\("chat\.send"\)\}/);
 });
 
 test("keeps Settings › MCP usable in the 190px phone sidebar", () => {

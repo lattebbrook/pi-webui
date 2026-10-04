@@ -153,7 +153,8 @@
 }
 
 .config-sidebar-group-count {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-weight: 400;
 }
 
@@ -236,7 +237,8 @@
 .models-sidebar-badge {
   flex-shrink: 0;
   color: var(--text-dim);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: 10px;
 }
 
@@ -370,7 +372,8 @@
 .enabled-models-count {
   margin-right: auto;
   color: var(--text-dim);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: 10px;
 }
 
@@ -1218,13 +1221,13 @@
 .config-button-primary.is-success {
   border-color: #16a34a;
   background: #16a34a;
-  animation: saved-pop 0.45s ease;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 
 .config-button-success-icon {
   flex-shrink: 0;
   stroke-dasharray: 18;
-  animation: saved-check-draw 0.35s ease forwards;
+  animation: saved-check-draw var(--dur-base) var(--ease-out) forwards;
 }
 
 .config-button.is-pushed-right {
@@ -1373,6 +1376,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.38);
+  animation: ui-fade-in var(--dur-base) var(--ease-out) both;
 }
 
 /* Focus moves to the dialog itself when Settings opens (tabIndex -1); it is not a control, so no ring. */
@@ -1389,9 +1393,10 @@
   max-height: calc(100dvh - 16px);
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--bg);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.3);
+  animation: ui-pop-in var(--dur-base) var(--ease-out) both;
 }
 
 .settings-dialog-header {
@@ -1639,7 +1644,8 @@
 
 .settings-chat-range-header output {
   color: var(--text-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
 }
 
@@ -1845,12 +1851,6 @@
     color: var(--text);
     font-size: 16px;
   }
-}
-
-@keyframes saved-pop {
-  0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
-  40%  { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(74, 222, 128, 0.25); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
 }
 
 @keyframes saved-check-draw {

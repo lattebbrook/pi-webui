@@ -120,7 +120,7 @@ export function SelectorRow({
           onMouseEnter={(event) => {
             event.currentTarget.style.background = "var(--bg-selected)";
             event.currentTarget.style.color = "var(--accent)";
-            event.currentTarget.style.borderColor = "rgba(37,99,235,0.35)";
+            event.currentTarget.style.borderColor = "color-mix(in srgb, var(--text) 28%, transparent)";
           }}
           onMouseLeave={(event) => {
             event.currentTarget.style.background = "var(--bg-hover)";

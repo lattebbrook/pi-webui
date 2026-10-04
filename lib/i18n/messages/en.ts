@@ -1399,5 +1399,6 @@ export const enLocale: LocalePlugin = {
     "commandPalette.current": "current",
     "commandPalette.newSession": "New chat in this project",
     "commandPalette.hints": "↑↓ to move · Enter to open · Esc to close · ⌘K / Ctrl+K to toggle",
+    "chat.dropImages": "Drop images to attach",
   },
 };
