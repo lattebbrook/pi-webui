@@ -1,4 +1,49 @@
-# Pi Web
+# Pi WebUI
+
+A fork of [Pi Web](https://github.com/agegr/pi-web) that brings over the extras from
+[ompweb](https://github.com/kahme247/ompweb) (the oh-my-pi web UI) and adapts them to
+the plain **pi** coding agent. Everything below the fork section is upstream Pi Web's
+documentation and still applies.
+
+## What this fork adds
+
+| Feature | Where | Notes |
+|---|---|---|
+| **Usage dashboard** | Settings › Usage | Tokens and cost per provider, model, day and project, read from every pi session transcript (subagents included) and cached in `~/.pi/agent/pi-webui/usage.db`. |
+| **`/btw` side questions** | `/btw <question>` in the composer | Asks the session's own model about the session without adding anything to the transcript. Works while the agent is running; follow up, cancel and copy from the panel. `/btw` alone reopens the last answer. |
+| **Voice dictation** | Mic button in the composer | Records in the browser and transcribes through any OpenAI-compatible `/audio/transcriptions` endpoint. Shown only when configured (see below). |
+| **Command palette** | ⌘K / Ctrl+K | Jump to a session, start a chat, open a Settings section, switch theme. |
+| **macOS service** | `npm run service:install` | Runs a production build at login via launchd, separate from the dev checkout. |
+
+### Voice dictation setup
+
+Set these in the environment of the server (or before `npm run service:install`):
+
+```bash
+PI_WEBUI_STT_ENDPOINT=http://127.0.0.1:8080/v1/audio/transcriptions   # any OpenAI-compatible STT
+PI_WEBUI_STT_KEY=...        # optional bearer token
+PI_WEBUI_STT_MODEL=...      # optional model name
+```
+
+ompweb's `OMP_WEB_STT_*` names are still read as a fallback.
+
+### Running it
+
+```bash
+npm ci
+npm run dev                 # development, http://127.0.0.1:30141
+npm run service:install     # macOS: build + run at login, http://127.0.0.1:30140
+npm run service:status      # also: service:logs, service:restart, service:uninstall
+```
+
+The service deploys its own copy to `~/Library/Application Support/pi-webui/app`, so
+re-run `npm run service:install` after pulling changes.
+
+Attribution for the ported code is in [`NOTICE.md`](./NOTICE.md).
+
+---
+
+# Pi Web (upstream documentation)
 
 [中文文档](./README.zh-CN.md) | [日本語](./README.ja.md) | [Русский](./README.ru.md)
 
