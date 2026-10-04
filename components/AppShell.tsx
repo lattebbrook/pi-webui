@@ -10,6 +10,7 @@ import { FileViewer } from "./FileViewer";
 import { TabBar, type Tab } from "./TabBar";
 import { openFileTab, saveFileViewerState } from "./file-tab-state";
 import { SettingsPanel, SettingsSectionIcon } from "./SettingsPanel";
+import { CommandPalette } from "./CommandPalette";
 import { ProjectTrustDialog, type ProjectTrustFailure } from "./ProjectTrustDialog";
 import { BranchNavigator, hasSessionBranches } from "./BranchNavigator";
 import { SystemPromptPanel } from "./SystemPromptPanel";
@@ -388,6 +389,9 @@ export function AppShell() {
   const openSettingsSection = useCallback((section: SettingsSection) => {
     setSettingsSection(section);
   }, []);
+
+  // The ⌘K palette starts a chat where the sidebar's New button would.
+  const paletteCwd = selectedSession?.cwd ?? newSessionCwd ?? null;
 
   const handleSidebarToggle = useCallback(() => {
     if (isMobile) {
@@ -2544,6 +2548,14 @@ export function AppShell() {
         </div>
       </div>
     </div>
+    <CommandPalette
+      onSelectSession={handleSelectSession}
+      onNewSession={paletteCwd ? () => handleNewSession(
+        typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+        paletteCwd,
+      ) : null}
+      onOpenSettings={openSettingsSection}
+    />
     {settingsSection && (
       <SettingsPanel
         cwd={projectTrustCwd}
