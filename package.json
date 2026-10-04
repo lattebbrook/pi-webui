@@ -22,7 +22,8 @@
     "ios_saf 16.2"
   ],
   "bin": {
-    "pi-web": "bin/pi-web.js"
+    "pi-web": "bin/pi-web.js",
+    "pi-webui-launchd": "bin/pi-webui-launchd.js"
   },
   "files": [
     "bin",
@@ -45,7 +46,12 @@
     "test:terminal": "node e2e/terminal.mjs",
     "test:e2e": "node e2e/run.mjs",
     "test": "node --experimental-strip-types --test \"app/**/*.test.mjs\" \"components/**/*.test.mjs\" \"hooks/**/*.test.mjs\" \"lib/**/*.test.mjs\" \"public/**/*.test.mjs\"",
-    "release": "npm version patch --no-git-tag-version && npm run build && npm publish --access public"
+    "release": "npm version patch --no-git-tag-version && npm run build && npm publish --access public",
+    "service:install": "node bin/pi-webui-launchd.js install",
+    "service:status": "node bin/pi-webui-launchd.js status",
+    "service:logs": "node bin/pi-webui-launchd.js logs",
+    "service:restart": "node bin/pi-webui-launchd.js restart",
+    "service:uninstall": "node bin/pi-webui-launchd.js uninstall"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.0.0",
