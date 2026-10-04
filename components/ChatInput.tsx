@@ -1029,7 +1029,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     retry: retryDictation, playPreview: playPreviewDictation, pausePreview: pausePreviewDictation,
     seekPreview: seekPreviewDictation, confirmTranscribe: confirmTranscribeDictation,
   } = useDictation({
-    scope: draftKey,
+    // Without an STT endpoint there is nothing to adopt, so skip the job polling entirely.
+    scope: sttEnabled ? draftKey : undefined,
     onTranscript: (text, after) => {
       setDictationNotice(null);
       const base = valueRef.current;
